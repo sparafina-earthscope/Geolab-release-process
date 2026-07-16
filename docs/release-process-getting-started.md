@@ -81,4 +81,4 @@ Just cleanup/docs/CI?   -> chore: / docs: / ci: (won't appear in changelog)
 
 ## Status in this repo
 
-This process is documented here as the target workflow — the release-please config and workflow files aren't wired up in this repository yet. Until they are, keep using clear commit messages anyway; it costs nothing now and makes the eventual switch-over painless. Check with the team if you're unsure whether it's live yet.
+This process is live: `release-please-config.json`, `.release-please-manifest.json`, and the `release-please` and `build-push` workflows are all wired up. Commits landing on `main` are picked up automatically as described above.

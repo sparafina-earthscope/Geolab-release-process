@@ -93,3 +93,6 @@ dependencies:
   - requests
   - ruff
   - tqdm
+  # --- testing versioning ---
+  - seisbench
+  - seisbench-data
