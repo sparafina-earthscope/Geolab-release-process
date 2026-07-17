@@ -9,6 +9,3 @@ earthscopestraintools
 
 # --- Jupyter add-ons ---
 jupyterlab_jupyterbook_navigation
-
-# --- Geophysics ---
-seisbench
