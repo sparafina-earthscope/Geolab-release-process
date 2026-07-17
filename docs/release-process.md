@@ -28,6 +28,8 @@ Every commit that should affect the version or changelog follows this format:
 
 release-please only reads the commit message's type prefix — it never inspects the diff, so *how* a package was installed doesn't affect its classification. Adding a package via `apt.txt`, `environment.yml`, `requirements.txt`, or by building it from source in a Dockerfile `RUN` step are all equally "adding a package" (`feat:`, minor). Don't confuse "building a tool from its source repository" with a base image swap — only changing the Dockerfile's `FROM` line qualifies for `feat!:`.
 
+Other changes to `geolab-base/Dockerfile` that are neither a package change nor a base image swap — e.g. editing `ENV`/`LABEL`/`ARG` defaults, `CMD`, or the `start` entrypoint script — aren't explicitly covered by the table above either. Classify these by what they actually do: a bug fix or behavior correction is `fix:`, a new capability is `feat:`. There's no separate rule for "Dockerfile plumbing."
+
 ### Types that do not affect versioning
 
 `chore:`, `docs:`, `ci:`, `refactor:`, `test:`, `style:` These are recorded in git history but do not trigger a version bump or changelog entry.
@@ -131,6 +133,16 @@ No new code changes are introduced by this PR. It only proposes the version/chan
 5. **On merge, release-please tags the release.** It creates a git tag (e.g. `v1.3.0`) and a corresponding GitHub Release with the changelog entry as the release notes.
 
 6. **The GitHub Release publish event triggers the build/push pipeline.** `build-push.yml` listens for `release: types: [published]`, checks out the repo at that release, reads the version straight out of `geolab-base/VERSION` (which release-please just wrote as part of the merged Release PR), and tags the image with exactly that value — e.g. `1.3.0`. Reading the file directly instead of re-deriving the version from the git tag name is what guarantees the image tag and the package release are always the same version.
+
+## What release-please does not see
+
+release-please is driven entirely by git commit messages. It never inspects a diff, a GitHub repo setting, a secret, or anything else that isn't a git commit. Two consequences of that are easy to miss:
+
+**Only commits that touch `geolab-base/` count.** This repo's package path is `geolab-base` (see `release-please-config.json`). A commit is only considered for versioning/changelog purposes if its diff touches a file under `geolab-base/` — regardless of its type prefix. A `fix:`/`feat:`/`feat!:` commit that only touches `.github/workflows/*.yml`, `release-please-config.json`, root `README.md`, `.gitlab-ci.yml`, `CODEOWNERS`, or `docs/*.md` has zero effect on the version; it's silently excluded, the same as a `chore:` commit would be. Verified directly against this repo: a `fix(build-push): ...` commit that only touched `build-push.yml` was skipped with "No user facing commits found." If you're changing CI/release automation rather than the image, `chore:`/`ci:`/`docs:` is still the right type — just don't expect a `fix:`/`feat:` on those files to bump anything either way.
+
+**Squash-merging would break this model.** release-please reads whatever commits actually exist in `main`'s history. If a PR is squash-merged, only the single squashed commit's message is ever seen — the individual commits inside that PR are discarded from history entirely. This repo doesn't currently squash-merge feature work, but if that changes, it's the squash commit's message (often defaulted to the PR title) that needs to follow Conventional Commits, not the commits inside the PR.
+
+More generally: everything past the type prefix is decorative to release-please. It doesn't know or care whether a commit added a package or rewrote the whole Dockerfile — the type you choose is the only thing that matters. See [Reverting a change](#reverting-a-change) above for how far this goes: a revert doesn't cancel anything out, because release-please has no notion of "this undoes that."
 
 ## One-time setup required
 
