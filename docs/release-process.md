@@ -23,8 +23,8 @@ Every commit that should affect the version or changelog follows this format:
 | Type | Version bump | When to use it |
 |---|---|---|
 | `fix:` | patch (`0.1.x`) | Bug fix, security patch, or version pin for a package |
-| `feat:` | minor (`0.x.0`) | Adding a new package, tool, or capability to the image |
-| `feat!:` or a `BREAKING CHANGE:` footer | major (`x.0.0`) | Base image swap, removal of a package, or any change that breaks compatibility |
+| `feat:` | minor (`0.x.0`) | Adding or removing a package, tool, or capability from the image |
+| `feat!:` or a `BREAKING CHANGE:` footer | major (`x.0.0`) | Base image swap, or any other change that breaks compatibility |
 
 ### Types that do not affect versioning
 
@@ -34,6 +34,8 @@ Every commit that should affect the version or changelog follows this format:
 
 ```text
 feat(geolab-base): add scipy to environment.yml
+
+feat(geolab-base): remove seisbench due to failed dependency resolution
 
 fix(geolab-base): pin numpy to 1.26.4 to fix build failure
 

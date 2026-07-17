@@ -33,7 +33,7 @@ The type tells release-please what to do with the version number:
 | You write... | Version changes like... | Use it when... |
 |---|---|---|
 | `fix: ...` | `0.1.0` → `0.1.1` | You fixed a bug, patched a security issue, or pinned a broken package version |
-| `feat: ...` | `0.1.0` → `0.2.0` | You added something new — a package, a tool, a capability |
+| `feat: ...` | `0.1.0` → `0.2.0` | You added or removed something — a package, a tool, a capability |
 | `feat!: ...` | `0.1.0` → `1.0.0` | You made a change that breaks compatibility, e.g. swapping the base image |
 | `chore:`, `docs:`, `ci:`, `refactor:`, `test:` | *(no change)* | Anything else — cleanup, docs, CI tweaks. These don't show up in the changelog. |
 
