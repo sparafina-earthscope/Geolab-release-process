@@ -22,7 +22,7 @@ Every commit that should affect the version or changelog follows this format:
 
 | Type | Version bump | When to use it |
 |---|---|---|
-| `fix:` | patch (`0.1.x`) | Bug fix, security patch, or version pin for a package |
+| `fix:` | patch (`0.1.x`) | Bug fix, security patch, or upgrading, downgrading, or pinning an existing package's version |
 | `feat:` | minor (`0.x.0`) | Adding or removing a package, tool, or capability from the image |
 | `feat!:` or a `BREAKING CHANGE:` footer | major (`x.0.0`) | Base image swap. This is the *only* case that qualifies for a major bump — nothing else in this repo does. |
 
@@ -38,6 +38,10 @@ feat(geolab-base): add scipy to environment.yml
 feat(geolab-base): remove seisbench due to failed dependency resolution
 
 fix(geolab-base): pin numpy to 1.26.4 to fix build failure
+
+fix(geolab-base): upgrade obspy to 1.5.0 for a bugfix upstream
+
+fix(geolab-base): downgrade pyarrow to 17.0.0 to unblock the build
 
 feat!: bump base image from python:3.11 to python:3.12
 
