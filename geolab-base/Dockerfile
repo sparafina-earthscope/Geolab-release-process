@@ -22,8 +22,8 @@ LABEL org.opencontainers.image.title="${IMAGE_TITLE}" \
       org.opencontainers.image.authors="${IMAGE_AUTHORS}"
 
 # Record the released image version on disk, owned by the runtime user
-# (jovyan) so /opt/VERSION stays writable at runtime — CI overwrites this
-# file with the real released version before `docker build` (see build-push.yml).
+# (jovyan) so /opt/VERSION stays writable at runtime. VERSION is maintained
+# by release-please (see release-please-config.json / build-push.yml).
 COPY --chown=jovyan:jovyan VERSION /opt/VERSION
 
       # Set locations of PROJ/GDAL resource directories

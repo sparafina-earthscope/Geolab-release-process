@@ -4,7 +4,6 @@
   "packages": {
     "geolab-base": {
       "release-type": "simple",
-      "package-name": "geolab-base",
       "version-file": "VERSION",
       "changelog-path": "CHANGELOG.md"
     }

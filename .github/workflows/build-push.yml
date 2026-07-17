@@ -1,18 +1,13 @@
-# .github/workflows/build-push-ghcr.yml
 name: Build and Push to GHCR
+
 on:
-  push:
-    branches: '**'
-  pull_request:
-    branches:
-      - main
-      - develop
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions:
-      contents: read
-      packages: write
+  contents: read
+  packages: write
 
 env:
   REGISTRY: ghcr.io
@@ -21,64 +16,32 @@ env:
 jobs:
   build-push:
     runs-on: ubuntu-latest
-
-    # Required permissions for pushing to GHCR
-    permissions:
-      contents: read
-      packages: write
-
     steps:
       - uses: actions/checkout@v6
 
-      # Stamp the resolved version into the build context so the Dockerfile
-      # can COPY it to /opt/VERSION. Only release events get a real semver;
-      # other triggers get a dev placeholder. Runs before metadata extraction
-      # so the resolved version can also be used as a Docker tag below.
-      - name: Resolve image version
+      # release-please already wrote the released version into this file as
+      # part of the Release PR merge that created this release, so read it
+      # directly instead of re-deriving it from the git tag name. This is
+      # what guarantees the image tag and the package release are the same
+      # version.
+      - name: Read released version
         id: version
-        run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            VERSION="0.0.0-dev"
-          fi
-          echo "$VERSION" > geolab-base/VERSION
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(cat geolab-base/VERSION)" >> "$GITHUB_OUTPUT"
 
-      # Login to GHCR
       - name: Login to GHCR
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Extract metadata for image tags and labels
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.event_name != 'release' }}
-
-      # Set up Docker Buildx for advanced features
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v4
 
-      # Build and push with caching
       - name: Build and Push
         uses: docker/build-push-action@v7
         with:
           context: ./geolab-base
           file: ./geolab-base/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
