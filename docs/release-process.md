@@ -24,7 +24,7 @@ Every commit that should affect the version or changelog follows this format:
 |---|---|---|
 | `fix:` | patch (`0.1.x`) | Bug fix, security patch, or version pin for a package |
 | `feat:` | minor (`0.x.0`) | Adding or removing a package, tool, or capability from the image |
-| `feat!:` or a `BREAKING CHANGE:` footer | major (`x.0.0`) | Base image swap, or any other change that breaks compatibility |
+| `feat!:` or a `BREAKING CHANGE:` footer | major (`x.0.0`) | Base image swap. This is the *only* case that qualifies for a major bump — nothing else in this repo does. |
 
 ### Types that do not affect versioning
 

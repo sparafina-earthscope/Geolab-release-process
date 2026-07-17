@@ -34,7 +34,7 @@ The type tells release-please what to do with the version number:
 |---|---|---|
 | `fix: ...` | `0.1.0` → `0.1.1` | You fixed a bug, patched a security issue, or pinned a broken package version |
 | `feat: ...` | `0.1.0` → `0.2.0` | You added or removed something — a package, a tool, a capability |
-| `feat!: ...` | `0.1.0` → `1.0.0` | You made a change that breaks compatibility, e.g. swapping the base image |
+| `feat!: ...` | `0.1.0` → `1.0.0` | You swapped the base image. This is the *only* thing that gets a major bump in this repo. |
 | `chore:`, `docs:`, `ci:`, `refactor:`, `test:` | *(no change)* | Anything else — cleanup, docs, CI tweaks. These don't show up in the changelog. |
 
 You can optionally add a scope in parentheses to say *where* the change happened, e.g. `fix(geolab-base): ...`. It's just for readability.
@@ -73,10 +73,10 @@ You don't need to touch `VERSION`, `CHANGELOG.md`, or the Docker tags yourself �
 ## Cheat sheet
 
 ```text
-Fixed something?        -> fix: describe the fix
-Added something new?    -> feat: describe what was added
-Broke compatibility?     -> feat!: describe it, plus a BREAKING CHANGE: footer
-Just cleanup/docs/CI?   -> chore: / docs: / ci: (won't appear in changelog)
+Fixed something?          -> fix: describe the fix
+Added or removed a package? -> feat: describe what changed
+Swapped the base image?   -> feat!: describe it, plus a BREAKING CHANGE: footer
+Just cleanup/docs/CI?     -> chore: / docs: / ci: (won't appear in changelog)
 ```
 
 ## Status in this repo
