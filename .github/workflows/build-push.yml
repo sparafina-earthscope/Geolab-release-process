@@ -30,6 +30,21 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Stamp the resolved version into the build context so the Dockerfile
+      # can COPY it to /opt/VERSION. Only release events get a real semver;
+      # other triggers get a dev placeholder. Runs before metadata extraction
+      # so the resolved version can also be used as a Docker tag below.
+      - name: Resolve image version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.0.0-dev+${GITHUB_SHA::7}"
+          fi
+          echo "$VERSION" > geolab-base/VERSION
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       # Login to GHCR
       - name: Login to GHCR
         if: github.event_name != 'pull_request'
@@ -51,24 +66,11 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.event_name != 'release' }}
 
       # Set up Docker Buildx for advanced features
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v4
-
-      # Stamp the resolved version into the build context so the Dockerfile
-      # can COPY it to /opt/VERSION. Only release events get a real semver;
-      # other triggers get a dev placeholder.
-      - name: Resolve image version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            VERSION="0.0.0-dev+${GITHUB_SHA::7}"
-          fi
-          echo "$VERSION" > geolab-base/VERSION
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       # Build and push with caching
       - name: Build and Push
