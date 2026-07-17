@@ -100,6 +100,18 @@ Refs: CRO-431
 
 A `git commit --amend` works the same way if you need to fix a type/scope on the most recent commit before pushing. Re-run `git commit --amend` and edit the message.
 
+### Reverting a change
+
+`git revert` produces a commit message like `Revert "feat(geolab-base): add jq via apt.txt"`. That's not valid Conventional Commits syntax, and release-please's parser can't read it — it's silently dropped with no error. In practice this means reverting a `feat:`/`fix:` commit does **not** undo its effect: the original commit is still counted in full, so the next release still bumps the version and still lists the reverted change in `CHANGELOG.md`, as if it had shipped.
+
+Rewriting the revert with valid syntax (e.g. `revert(geolab-base): add jq via apt.txt`, with a `This reverts commit <sha>.` footer) doesn't fix this either. release-please recognizes `revert:` as its own type with its own `### Reverts` changelog section, but that does not cancel out or remove the original commit's entry or version bump — the changelog ends up showing *both* the original change and its revert, and the version still bumps as though the original change stuck.
+
+**release-please has no built-in way to treat a revert as a net no-op.** If a change needs to be fully retracted before its effect on versioning/the changelog:
+
+- **Best, if the commit hasn't been released yet:** remove it from history (`git rebase`/`reset`) before it's ever picked up into a Release PR, rather than reverting it forward.
+- **If it's already in an open, unmerged Release PR:** edit that PR's branch directly to drop the change, instead of adding a revert commit to `main`.
+- **If it's already been released:** don't rely on `git revert`'s default message at all — write the undo as an ordinary new commit (`fix:`/`feat:` as appropriate to what the undo actually does).
+
 ## Step-by-step: how release-please works
 
 1. **Contributor commits using Conventional Commits.** Every PR merged to `main` contains commits following the format above.
