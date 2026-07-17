@@ -15,4 +15,8 @@ jobs:
     steps:
       - uses: googleapis/release-please-action@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # A PAT is required here (not secrets.GITHUB_TOKEN): GitHub does not
+          # let releases/tags created via the default token trigger other
+          # workflows, which would prevent build-push.yml's `release: published`
+          # trigger from ever firing.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}

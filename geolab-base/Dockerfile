@@ -21,11 +21,10 @@ ARG IMAGE_AUTHORS="NoSpecifiedAuthors"  # default if user passes nothing
 LABEL org.opencontainers.image.title="${IMAGE_TITLE}" \
       org.opencontainers.image.authors="${IMAGE_AUTHORS}"
 
-# Record the released image version on disk. COPY writes as root regardless
-# of the non-root USER the base image runs as, so this works without needing
-# write access to /opt at runtime — CI overwrites this file with the real
-# released version before `docker build` (see build-push.yml).
-COPY VERSION /opt/VERSION
+# Record the released image version on disk, owned by the runtime user
+# (jovyan) so /opt/VERSION stays writable at runtime — CI overwrites this
+# file with the real released version before `docker build` (see build-push.yml).
+COPY --chown=jovyan:jovyan VERSION /opt/VERSION
 
       # Set locations of PROJ/GDAL resource directories
 ENV PROJ_DATA=/srv/conda/envs/notebook/share/proj \
