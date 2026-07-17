@@ -26,6 +26,8 @@ Every commit that should affect the version or changelog follows this format:
 | `feat:` | minor (`0.x.0`) | Adding or removing a package, tool, or capability from the image |
 | `feat!:` or a `BREAKING CHANGE:` footer | major (`x.0.0`) | Base image swap. This is the *only* case that qualifies for a major bump — nothing else in this repo does. |
 
+release-please only reads the commit message's type prefix — it never inspects the diff, so *how* a package was installed doesn't affect its classification. Adding a package via `apt.txt`, `environment.yml`, `requirements.txt`, or by building it from source in a Dockerfile `RUN` step are all equally "adding a package" (`feat:`, minor). Don't confuse "building a tool from its source repository" with a base image swap — only changing the Dockerfile's `FROM` line qualifies for `feat!:`.
+
 ### Types that do not affect versioning
 
 `chore:`, `docs:`, `ci:`, `refactor:`, `test:`, `style:` These are recorded in git history but do not trigger a version bump or changelog entry.
@@ -34,6 +36,10 @@ Every commit that should affect the version or changelog follows this format:
 
 ```text
 feat(geolab-base): add scipy to environment.yml
+
+feat(geolab-base): add nodejs and npm via apt.txt
+
+feat(geolab-base): build and install libmseed from source
 
 feat(geolab-base): remove seisbench due to failed dependency resolution
 
