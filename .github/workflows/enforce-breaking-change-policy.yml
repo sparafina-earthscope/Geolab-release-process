@@ -1,0 +1,41 @@
+name: Enforce breaking-change policy
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Only a base image swap may claim a breaking change
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          RANGE="$BASE_SHA..HEAD"
+
+          breaking=0
+          if git log "$RANGE" --format='%s' | grep -qE '^[a-zA-Z]+(\([^)]*\))?!:'; then
+            breaking=1
+          fi
+          if git log "$RANGE" --format='%B' | grep -q '^BREAKING CHANGE:'; then
+            breaking=1
+          fi
+
+          if [ "$breaking" -eq 1 ]; then
+            if ! git diff "$RANGE" -- geolab-base/Dockerfile | grep -qE '^[+-]FROM '; then
+              echo "::error::A commit in this PR is marked as a breaking change (feat!:, fix!:, or a BREAKING CHANGE: footer), but geolab-base/Dockerfile's FROM line was not changed. Per docs/release-process.md, a base image swap is the only thing that should trigger a major version bump in this repo. If this isn't a base image swap, drop the '!'/BREAKING CHANGE: footer and use a regular feat:/fix: instead."
+              exit 1
+            fi
+          fi
+
+          echo "OK: no breaking-change policy violation."
