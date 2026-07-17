@@ -66,7 +66,7 @@ Nothing changes about how you open and merge pull requests. Just make sure the c
 4. When someone on the team is ready to actually cut a release, they merge that PR.
 5. Merging it creates an official GitHub Release and a git tag like
    `v1.3.0`.
-6. That Release triggers our existing image build workflow (`build-push.yml`), which builds and pushes the Docker image to GHCR tagged `1.3.0`, `1.3`, and `latest`.
+6. That Release triggers our existing image build workflow (`build-push.yml`), which reads the version straight out of `geolab-base/VERSION` and pushes the Docker image to GHCR tagged with exactly that version, e.g. `1.3.0`.
 
 You don't need to touch `VERSION`, `CHANGELOG.md`, or the Docker tags yourself — writing your commit message correctly in Step 1 is what drives all of this.
 

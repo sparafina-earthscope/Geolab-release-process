@@ -130,7 +130,7 @@ No new code changes are introduced by this PR. It only proposes the version/chan
 
 5. **On merge, release-please tags the release.** It creates a git tag (e.g. `v1.3.0`) and a corresponding GitHub Release with the changelog entry as the release notes.
 
-6. **The GitHub Release publish event triggers the build/push pipeline.** `build-push.yml` already listens for `release: types: [published]` and already tags Docker images using `type=semver,pattern={{version}}` and `type=semver,pattern={{major}}.{{minor}}` in its `docker/metadata-action` step. Once step 5 happens, this fires automatically and the image gets published as `1.3.0`, `1.3`, and `latest` (for the default branch). No changes needed to the existing Docker build/push logic.
+6. **The GitHub Release publish event triggers the build/push pipeline.** `build-push.yml` listens for `release: types: [published]`, checks out the repo at that release, reads the version straight out of `geolab-base/VERSION` (which release-please just wrote as part of the merged Release PR), and tags the image with exactly that value — e.g. `1.3.0`. Reading the file directly instead of re-deriving the version from the git tag name is what guarantees the image tag and the package release are always the same version.
 
 ## One-time setup required
 
