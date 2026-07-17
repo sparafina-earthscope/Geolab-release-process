@@ -10,6 +10,5 @@ earthscopestraintools
 # --- Jupyter add-ons ---
 jupyterlab_jupyterbook_navigation
 
-  # --- testing versioning ---
-  - seisbench
-  - seisbench-data
+# --- Geophysics ---
+seisbench
