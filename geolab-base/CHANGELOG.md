@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/sparafina-earthscope/Geolab-release-process/compare/v1.0.0...v1.0.1) (2026-07-18)
+
+
+### Bug Fixes
+
+* **geolab-base:** pin seisbench==0.6.0 to test versioning ([67714cc](https://github.com/sparafina-earthscope/Geolab-release-process/commit/67714cc021f29a1f5f4b9ac42f7febf02045d076))
+
 ## 1.0.0 (2026-07-17)
 
 
