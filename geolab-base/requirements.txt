@@ -12,4 +12,3 @@ jupyterlab_jupyterbook_navigation
 
 # --- Geophysics ---
 seisbench
-pyrocko
