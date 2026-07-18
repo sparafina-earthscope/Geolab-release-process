@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/sparafina-earthscope/Geolab-release-process/compare/v1.0.1...v1.1.0) (2026-07-18)
+
+
+### Features
+
+* **geolab-base:** add nbgitpuller to environment.yml ([831d6c4](https://github.com/sparafina-earthscope/Geolab-release-process/commit/831d6c494131d8e1f5b389c270301ea5e7696f0c))
+
 ## [1.0.1](https://github.com/sparafina-earthscope/Geolab-release-process/compare/v1.0.0...v1.0.1) (2026-07-18)
 
 
