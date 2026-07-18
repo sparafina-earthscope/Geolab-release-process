@@ -11,4 +11,4 @@ earthscopestraintools
 jupyterlab_jupyterbook_navigation
 
 # --- Geophysics ---
-seisbench
+seisbench==0.6.0
