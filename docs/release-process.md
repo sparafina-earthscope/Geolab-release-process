@@ -87,10 +87,17 @@ git commit -m 'feat!: bump base image from python:3.11 to python:3.12' \
 ```
 
 Use single quotes for the `-m` argument containing `!:` — in bash/zsh, `!` triggers history
-expansion, and double quotes don't protect against it (only single quotes or `\!` do). A
-double-quoted `"feat!: ..."` will fail interactively with `zsh: illegal modifier:` (zsh parses
-`!:` as a history-event modifier). This only bites interactive shells; it's not an issue in
-scripts/CI, which don't have history expansion enabled.
+expansion, and double quotes don't protect against it. A double-quoted `"feat!: ..."` will fail
+interactively with `zsh: illegal modifier:` (zsh parses `!:` as a history-event modifier). This
+only bites interactive shells; it's not an issue in scripts/CI, which don't have history
+expansion enabled.
+
+Don't try to fix this with `\!` inside double quotes — that avoids the shell error, but leaves a
+literal backslash in the commit message itself (`feat\!: ...`), which release-please's parser
+won't recognize as a breaking change at all. Verified directly: `git commit -m "feat\!: test"`
+produces the commit message `feat\!: test`, backslash and all. Single quotes are the one
+one-liner fix that's actually safe; when in doubt, skip `-m` and use `git commit` to open your
+editor instead, which sidesteps shell quoting entirely.
 
 For longer messages, skip `-m` and let git open your editor (respects `core.editor` / `$EDITOR`), which is easier for multi-paragraph bodies and footers:
 
