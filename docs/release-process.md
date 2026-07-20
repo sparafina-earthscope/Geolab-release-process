@@ -86,18 +86,21 @@ git commit -m 'feat!: bump base image from python:3.11 to python:3.12' \
   -m "BREAKING CHANGE: base image major version changed; downstream images must rebuild"
 ```
 
-Use single quotes for the `-m` argument containing `!:` — in bash/zsh, `!` triggers history
-expansion, and double quotes don't protect against it. A double-quoted `"feat!: ..."` will fail
-interactively with `zsh: illegal modifier:` (zsh parses `!:` as a history-event modifier). This
-only bites interactive shells; it's not an issue in scripts/CI, which don't have history
-expansion enabled.
+`!` triggers history expansion in interactive bash/zsh, and double quotes don't protect against
+it — a double-quoted `"feat!: ..."` fails interactively with `zsh: illegal modifier:` (zsh parses
+`!:` as a history-event modifier). This only bites interactive shells; it's not an issue in
+scripts/CI, which don't have history expansion enabled. Ways to avoid it, in order of preference:
 
-Don't try to fix this with `\!` inside double quotes — that avoids the shell error, but leaves a
-literal backslash in the commit message itself (`feat\!: ...`), which release-please's parser
-won't recognize as a breaking change at all. Verified directly: `git commit -m "feat\!: test"`
-produces the commit message `feat\!: test`, backslash and all. Single quotes are the one
-one-liner fix that's actually safe; when in doubt, skip `-m` and use `git commit` to open your
-editor instead, which sidesteps shell quoting entirely.
+- **Single quotes — preferred.** `git commit -m 'feat!: ...'`. Verified safe and correct; this
+  is what every `feat!:` example in this doc uses.
+- **Skip `-m`, use your editor.** Plain `git commit` opens `$EDITOR`, sidestepping shell quoting
+  entirely. Good fallback if you're ever unsure.
+- **Don't use `\!` inside double quotes.** It avoids the shell error, but leaves a literal
+  backslash in the actual commit message — verified directly: `git commit -m "feat\!: test"`
+  produces the commit message `feat\!: test`, backslash and all. release-please's parser won't
+  recognize that as a breaking change.
+- Disabling history expansion for the whole session (`set +H` in bash, `unsetopt banghist` in
+  zsh) also works, but it's a blunt, session-wide setting — not worth it for a single commit.
 
 For longer messages, skip `-m` and let git open your editor (respects `core.editor` / `$EDITOR`), which is easier for multi-paragraph bodies and footers:
 

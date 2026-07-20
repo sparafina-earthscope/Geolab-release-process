@@ -50,11 +50,12 @@ git commit -m 'feat!: bump base image from python:3.11 to python:3.12' \
   -m "BREAKING CHANGE: base image major version changed; downstream images must rebuild"
 ```
 
-> Use single quotes around the `-m` argument that contains `!:` — in an interactive shell,
-> double quotes don't stop `!` from triggering history expansion, and `"feat!: ..."` will fail
-> with something like `zsh: illegal modifier:`. Don't "fix" this with `\!` instead — that avoids
-> the shell error but leaves a literal backslash in the commit message itself, which
-> release-please won't recognize as a breaking change. Single quotes are the safe fix.
+> **Use single quotes (preferred)** around the `-m` argument that contains `!:` — in an
+> interactive shell, double quotes don't stop `!` from triggering history expansion, and
+> `"feat!: ..."` will fail with something like `zsh: illegal modifier:`. Don't "fix" this with
+> `\!` instead — that avoids the shell error but leaves a literal backslash in the commit
+> message itself, which release-please won't recognize as a breaking change. If you're ever
+> unsure, skip `-m` entirely and let `git commit` open your editor instead.
 
 That first line (`fix: ...` / `feat: ...`) is the only part that matters for versioning. Everything else — a longer explanation, a ticket reference — can go on the lines below it, and release-please will just carry it along as extra detail.
 
