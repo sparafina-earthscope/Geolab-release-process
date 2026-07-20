@@ -13,7 +13,8 @@
 #   --build-arg IMAGE_AUTHORS=you@university.edu \
 #   -t my-geolab-image .
 # ──────────────────────────────────────────────────────────────
-FROM pangeo/base-image:04681e6
+# FROM pangeo/base-image:04681e6
+FROM pangeo/base-image:843a5e0
 
 ARG IMAGE_TITLE="custom-geolab-image"   # default if user passes nothing
 ARG IMAGE_AUTHORS="NoSpecifiedAuthors"  # default if user passes nothing
