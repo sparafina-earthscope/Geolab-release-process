@@ -5,18 +5,17 @@ introducing it to the real repo, [earthscope/Geolab](https://github.com/earthsco
 This doc is the step-by-step for making that move. It assumes you're comfortable with the
 concepts in [release-process.md](release-process.md) — read that first if you haven't.
 
-## Before you start: two decisions only you can make
+## Before you start: one decision only you can make
 
-**1. Does this replace or supplement the existing GitLab CI / AWS ECR pipeline?**
-`earthscope/Geolab` currently has a live `.gitlab-ci.yml` pipeline that builds `geolab-base` and
-pushes it to AWS ECR with timestamp-based versions (`USE_TIMESTAMP_VERSION: "true"`). This
-rollout adds a *second*, parallel pipeline: GitHub Actions building semantically-versioned
-images to GHCR. Decide up front whether:
-- Both run side by side for a while (two registries, two versioning schemes, some confusion), or
-- This is meant to fully replace the GitLab pipeline (in which case, plan its removal separately
-  — that's out of scope for this doc, and shouldn't happen in the same PR as the addition).
+**Resolved: this supplements the GitLab pipeline, it doesn't replace it.** GitHub Actions +
+release-please becomes the *dev* pipeline: it decides the semantic version from commit history
+and builds a dev image to GHCR tagged with it. `earthscope/Geolab`'s existing `.gitlab-ci.yml` →
+AWS ECR pipeline stays the actual production release, and production promotion is a **deliberate,
+separate step** — GitLab does not automatically rebuild every time GitHub cuts a release. See
+[Promoting a dev release to production via GitLab](#promoting-a-dev-release-to-production-via-gitlab)
+below for that process.
 
-**2. What's the starting version?**
+**What's the starting version?**
 `earthscope/Geolab` already has real, currently-deployed images (timestamp-versioned, on ECR).
 There's no natural "1.0.0" here the way there was in the sandbox. Pick a starting version that
 makes sense for your team — e.g. `1.0.0` if you're treating this as a fresh semver start, or
@@ -140,6 +139,42 @@ Don't assume it works — verify, the same way each piece was verified in the sa
 4. Confirm `build-push.yml` actually runs off that `release: published` event (not just
    `workflow_dispatch`) — this is the one that silently didn't work before the PAT was in place.
 5. Pull the resulting image from GHCR and check `/opt/VERSION` inside it matches the release tag.
+
+## Promoting a dev release to production via GitLab
+
+Everything above produces a dev image in GHCR and a version decided by release-please. Getting
+that same version built and pushed to AWS ECR for production is a **separate, deliberate
+action** — not automatic. The mechanics below depend on two things I could not verify (no access
+to EarthScope's GitLab instance, or to the `earthscope/infrastructure/gitlab-ci` shared template
+that `.gitlab-ci.yml` includes) — confirm both with `@earthscope/cloud-enablement` before relying
+on this:
+
+1. **Whether `earthscope/Geolab` is mirrored from GitHub to GitLab at all**, and if so, whether
+   tags are included in that mirror. GitLab needs the tagged commit available to build from — if
+   there's no mirror, or it doesn't carry tags, that has to be set up first.
+2. **How the shared pipeline template wants to receive an explicit version.** `.gitlab-ci.yml`
+   currently sets `USE_TIMESTAMP_VERSION: "true"`, which — going by the name — has the template
+   generate its own version at build time, unrelated to anything in the repo. Producing an image
+   tagged to match a specific GitHub release means either disabling that and pointing the
+   template at `geolab-base/VERSION` (which already has the exact right value, written by
+   release-please as part of the merge commit — no extra hand-off needed if this is possible),
+   or supplying the version through whatever CI/CD variable the template actually supports. That
+   variable's name isn't visible to me; it's defined in the private shared template.
+
+Once those are confirmed, the shape of the promotion process is:
+
+1. A GitHub release exists (e.g. `v1.2.0`) and has already been dev-tested via the GHCR image.
+2. Someone decides it's ready for production and manually triggers a GitLab pipeline run against
+   that exact tag/commit — via GitLab's UI ("Run pipeline", selecting the tag) or its pipeline
+   API (`POST /projects/:id/pipeline?ref=v1.2.0`), passing whatever variable overrides the
+   timestamp versioning in favor of the real version.
+3. The pipeline checks out that commit — which already contains `geolab-base/VERSION` = `1.2.0`
+   and the matching `Dockerfile` — builds it, and pushes to AWS ECR tagged `1.2.0`.
+4. Confirm the ECR image tag matches the GitHub release tag before considering it promoted.
+
+This keeps the two systems cleanly separated: GitHub/release-please is the source of truth for
+*what version something is and what changed*; GitLab is the source of truth for *what's actually
+running in production*, and a human decides when those become the same thing.
 
 ## Bugs already fixed in the files you're copying — don't reintroduce them
 
