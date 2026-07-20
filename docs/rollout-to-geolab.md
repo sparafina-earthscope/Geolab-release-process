@@ -150,25 +150,42 @@ action** — not automatic.
 copy of the repo. That merge is what kicks off `.gitlab-ci.yml`'s pipeline. This also confirms a
 GitHub↔GitLab mirror exists — an MR can't be opened otherwise.
 
-**Still unresolved, and the one thing that actually determines whether this works: does that
-pipeline tag the resulting ECR image with the version from the repo, or with a generated
-timestamp?** `.gitlab-ci.yml` sets `USE_TIMESTAMP_VERSION: "true"`, and neither I nor whoever
-answered this on the team could confirm what that flag actually does inside the private
-`earthscope/infrastructure/gitlab-ci` template. This needs a direct answer from
-`@earthscope/cloud-enablement` before this process can be trusted — the two possibilities lead
-to different amounts of work:
+**Confirmed: it currently publishes with a timestamp, disconnected from `geolab-base/VERSION`.**
+Merging the MR as things stand today does **not** produce a matching version — it produces
+whatever `USE_TIMESTAMP_VERSION: "true"` generates, unrelated to the GitHub release. For
+"release the same version" to actually be true, `.gitlab-ci.yml` needs a real change:
 
-- **If it already reads a version from the repo** (`geolab-base/VERSION`, or anything else that
-  would match): nothing further to build. Merging the MR with `geolab-base/VERSION` = `1.2.0` in
-  the merged content already produces `1.2.0` on ECR.
-- **If it always generates a timestamp regardless of MR content:** merging the MR does **not**
-  produce a matching version — it produces some unrelated timestamp tag. `.gitlab-ci.yml` would
-  need a real change (turning off `USE_TIMESTAMP_VERSION`, and pointing the template at
-  `geolab-base/VERSION` or an equivalent explicit version) before "release the same version" is
-  actually true. That's a change to a CODEOWNERS-gated file, so it'd need
-  `@earthscope/cloud-enablement` to make or approve it either way.
+```yaml
+variables:
+  CONTAINER_REGISTRY_PLATFORM: "AWS-PUB"
+  DOCKERFILE_RELPATH_IS_IMAGE_NAME: "true"
+  GITLAB_HOSTED_RUNNER_SIZE: "saas-linux-medium-amd64"
+  USE_TIMESTAMP_VERSION: "false"
+  # Proposed — exact variable name unconfirmed, needs @earthscope/cloud-enablement:
+  # something like IMAGE_VERSION or VERSION_FILE_PATH, pointed at geolab-base/VERSION
+```
 
-Assuming the first case (or once it's made true), the shape of the promotion process is:
+Turning off `USE_TIMESTAMP_VERSION` is the certain part of this suggestion. What replaces it
+isn't — the shared `earthscope/infrastructure/gitlab-ci` template isn't visible to me, so I
+don't know its actual variable name for "use this explicit version," or whether it supports
+reading a version file directly. Options to raise with `@earthscope/cloud-enablement`, roughly
+in order of how well they'd fit this repo's existing setup:
+
+- A variable that points at a version file (e.g. `VERSION_FILE_PATH: "geolab-base/VERSION"`) —
+  best fit, since that file is already the single source of truth release-please maintains.
+- A variable that takes an explicit version string (e.g. `IMAGE_VERSION`) — would need something
+  in the merge request itself (a CI/CD variable set on the MR, a commit convention) to carry the
+  version through to the pipeline.
+- Deriving the version from the git ref, if the pipeline could be made tag-triggered instead of
+  MR-triggered — a bigger process change than what's described here, since promotion is
+  confirmed to go through an MR, not a tag push.
+
+This is a change to a CODEOWNERS-gated file — `@earthscope/cloud-enablement` needs to make or
+approve it either way. Treat the variable block above as a starting point for that conversation,
+not a change to make unilaterally.
+
+Once `.gitlab-ci.yml` is actually publishing from the repo's version instead of a timestamp, the
+shape of the promotion process is:
 
 1. A GitHub release exists (e.g. `v1.2.0`) and has already been dev-tested via the GHCR image.
    `geolab-base/VERSION` in that commit already reads `1.2.0`.
@@ -177,7 +194,7 @@ Assuming the first case (or once it's made true), the shape of the promotion pro
 3. Merging it triggers `.gitlab-ci.yml`, which builds `geolab-base` from that content and pushes
    to AWS ECR.
 4. Confirm the resulting ECR image tag is `1.2.0`, not a timestamp, before considering it
-   promoted — don't assume this without checking, given the open question above.
+   promoted — verify this the first few times rather than assuming the fix took effect.
 
 This keeps the two systems cleanly separated: GitHub/release-please is the source of truth for
 *what version something is and what changed*; GitLab is the source of truth for *what's actually
