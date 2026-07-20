@@ -144,33 +144,40 @@ Don't assume it works — verify, the same way each piece was verified in the sa
 
 Everything above produces a dev image in GHCR and a version decided by release-please. Getting
 that same version built and pushed to AWS ECR for production is a **separate, deliberate
-action** — not automatic. The mechanics below depend on two things I could not verify (no access
-to EarthScope's GitLab instance, or to the `earthscope/infrastructure/gitlab-ci` shared template
-that `.gitlab-ci.yml` includes) — confirm both with `@earthscope/cloud-enablement` before relying
-on this:
+action** — not automatic.
 
-1. **Whether `earthscope/Geolab` is mirrored from GitHub to GitLab at all**, and if so, whether
-   tags are included in that mirror. GitLab needs the tagged commit available to build from — if
-   there's no mirror, or it doesn't carry tags, that has to be set up first.
-2. **How the shared pipeline template wants to receive an explicit version.** `.gitlab-ci.yml`
-   currently sets `USE_TIMESTAMP_VERSION: "true"`, which — going by the name — has the template
-   generate its own version at build time, unrelated to anything in the repo. Producing an image
-   tagged to match a specific GitHub release means either disabling that and pointing the
-   template at `geolab-base/VERSION` (which already has the exact right value, written by
-   release-please as part of the merge commit — no extra hand-off needed if this is possible),
-   or supplying the version through whatever CI/CD variable the template actually supports. That
-   variable's name isn't visible to me; it's defined in the private shared template.
+**Confirmed:** promotion is triggered by opening and merging a merge request on the GitLab-side
+copy of the repo. That merge is what kicks off `.gitlab-ci.yml`'s pipeline. This also confirms a
+GitHub↔GitLab mirror exists — an MR can't be opened otherwise.
 
-Once those are confirmed, the shape of the promotion process is:
+**Still unresolved, and the one thing that actually determines whether this works: does that
+pipeline tag the resulting ECR image with the version from the repo, or with a generated
+timestamp?** `.gitlab-ci.yml` sets `USE_TIMESTAMP_VERSION: "true"`, and neither I nor whoever
+answered this on the team could confirm what that flag actually does inside the private
+`earthscope/infrastructure/gitlab-ci` template. This needs a direct answer from
+`@earthscope/cloud-enablement` before this process can be trusted — the two possibilities lead
+to different amounts of work:
+
+- **If it already reads a version from the repo** (`geolab-base/VERSION`, or anything else that
+  would match): nothing further to build. Merging the MR with `geolab-base/VERSION` = `1.2.0` in
+  the merged content already produces `1.2.0` on ECR.
+- **If it always generates a timestamp regardless of MR content:** merging the MR does **not**
+  produce a matching version — it produces some unrelated timestamp tag. `.gitlab-ci.yml` would
+  need a real change (turning off `USE_TIMESTAMP_VERSION`, and pointing the template at
+  `geolab-base/VERSION` or an equivalent explicit version) before "release the same version" is
+  actually true. That's a change to a CODEOWNERS-gated file, so it'd need
+  `@earthscope/cloud-enablement` to make or approve it either way.
+
+Assuming the first case (or once it's made true), the shape of the promotion process is:
 
 1. A GitHub release exists (e.g. `v1.2.0`) and has already been dev-tested via the GHCR image.
-2. Someone decides it's ready for production and manually triggers a GitLab pipeline run against
-   that exact tag/commit — via GitLab's UI ("Run pipeline", selecting the tag) or its pipeline
-   API (`POST /projects/:id/pipeline?ref=v1.2.0`), passing whatever variable overrides the
-   timestamp versioning in favor of the real version.
-3. The pipeline checks out that commit — which already contains `geolab-base/VERSION` = `1.2.0`
-   and the matching `Dockerfile` — builds it, and pushes to AWS ECR tagged `1.2.0`.
-4. Confirm the ECR image tag matches the GitHub release tag before considering it promoted.
+   `geolab-base/VERSION` in that commit already reads `1.2.0`.
+2. Someone decides it's ready for production and opens a merge request bringing that commit (or
+   the equivalent state) into the GitLab-side repo.
+3. Merging it triggers `.gitlab-ci.yml`, which builds `geolab-base` from that content and pushes
+   to AWS ECR.
+4. Confirm the resulting ECR image tag is `1.2.0`, not a timestamp, before considering it
+   promoted — don't assume this without checking, given the open question above.
 
 This keeps the two systems cleanly separated: GitHub/release-please is the source of truth for
 *what version something is and what changed*; GitLab is the source of truth for *what's actually
