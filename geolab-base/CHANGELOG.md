@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.0](https://github.com/sparafina-earthscope/Geolab-release-process/compare/v1.1.0...v2.0.0) (2026-07-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* testing switching base image for second time
+* **geolab-base:** base image changed from pangeo/base-image:04bb14b to 04681e6.
+
+### Features
+
+* **geolab-base:** bump base image to pangeo/base-image:04681e6 ([c47b683](https://github.com/sparafina-earthscope/Geolab-release-process/commit/c47b6830e5e35885f4c96e9f02b53c9a57d229c7))
+* testing switching base image for second time ([94eee8a](https://github.com/sparafina-earthscope/Geolab-release-process/commit/94eee8a580a75329ae48af413721c5959aed1777))
+
 ## [1.1.0](https://github.com/sparafina-earthscope/Geolab-release-process/compare/v1.0.1...v1.1.0) (2026-07-18)
 
 
