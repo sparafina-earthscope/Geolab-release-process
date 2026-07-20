@@ -46,9 +46,13 @@ git commit -m "fix(geolab-base): pin numpy to 1.26.4 to fix build failure"
 
 git commit -m "feat(geolab-base): add scipy to environment.yml"
 
-git commit -m "feat!: bump base image from python:3.11 to python:3.12" \
+git commit -m 'feat!: bump base image from python:3.11 to python:3.12' \
   -m "BREAKING CHANGE: base image major version changed; downstream images must rebuild"
 ```
+
+> Use single quotes around the `-m` argument that contains `!:` — in an interactive shell,
+> double quotes don't stop `!` from triggering history expansion, and `"feat!: ..."` will fail
+> with something like `zsh: illegal modifier:`. Single quotes (or escaping it as `\!`) avoid this.
 
 That first line (`fix: ...` / `feat: ...`) is the only part that matters for versioning. Everything else — a longer explanation, a ticket reference — can go on the lines below it, and release-please will just carry it along as extra detail.
 

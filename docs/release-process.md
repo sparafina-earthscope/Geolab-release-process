@@ -82,9 +82,15 @@ git commit -m "fix(geolab-base): pin numpy to 1.26.4" \
 For a **breaking change**, add a `BREAKING CHANGE:` footer as its own `-m` paragraph, and mark the type with `!`:
 
 ```bash
-git commit -m "feat!: bump base image from python:3.11 to python:3.12" \
+git commit -m 'feat!: bump base image from python:3.11 to python:3.12' \
   -m "BREAKING CHANGE: base image major version changed; downstream images must rebuild"
 ```
+
+Use single quotes for the `-m` argument containing `!:` — in bash/zsh, `!` triggers history
+expansion, and double quotes don't protect against it (only single quotes or `\!` do). A
+double-quoted `"feat!: ..."` will fail interactively with `zsh: illegal modifier:` (zsh parses
+`!:` as a history-event modifier). This only bites interactive shells; it's not an issue in
+scripts/CI, which don't have history expansion enabled.
 
 For longer messages, skip `-m` and let git open your editor (respects `core.editor` / `$EDITOR`), which is easier for multi-paragraph bodies and footers:
 
