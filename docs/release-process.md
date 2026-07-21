@@ -167,3 +167,41 @@ To enable this process, the repository needs:
 - A `release-please-config.json` at the repo root configuring `release-type: simple` (appropriate for a non-npm non-language-specific repos) and pointing at the version file to track.
 - A `.release-please-manifest.json` tracking the current version per path.
 - A new workflow, e.g. `.github/workflows/release-please.yml`, running the `googleapis/release-please-action` on push to `main`.
+
+## Adding another directory to release-please
+
+`release-please-config.json`'s `packages` key is a generic object — it accepts any number of paths, each versioned independently based only on commits whose diff touches that specific path (see [What release-please does not see](#what-release-please-does-not-see)). This repo currently declares only `geolab-base`, but nothing about release-please limits it to one directory.
+
+To add a new directory — e.g. `geolab-gpu`, already hinted at as a commented-out entry in `.gitlab-ci.yml`'s `.images_matrix`:
+
+1. **Add a `VERSION` file at the new path** (e.g. `geolab-gpu/VERSION`), with a starting value release-please can bump from.
+
+2. **Add a second entry to `release-please-config.json`'s `packages` object**, alongside the existing one:
+
+   ```json
+   "packages": {
+     "geolab-base": {
+       "release-type": "simple",
+       "version-file": "VERSION",
+       "changelog-path": "CHANGELOG.md"
+     },
+     "geolab-gpu": {
+       "release-type": "simple",
+       "version-file": "VERSION",
+       "changelog-path": "CHANGELOG.md"
+     }
+   }
+   ```
+
+3. **Add a matching starting-version entry to `.release-please-manifest.json`**:
+
+   ```json
+   {
+     "geolab-base": "2.0.0",
+     "geolab-gpu": "0.0.0"
+   }
+   ```
+
+4. If the new path's starting version needs to be a specific number rather than whatever release-please would compute from existing commit history, force it with the same `Release-As:` empty-commit pattern used to bootstrap `geolab-base` (see [rollout-to-geolab.md](rollout-to-geolab.md)) — on a commit whose diff touches the new path, since that's what determines which package a commit counts toward.
+
+**This alone only makes release-please track the new directory's version and changelog** — it does not make `build-push.yml` build or publish an image for it. `build-push.yml` is currently hardcoded to `geolab-base/Dockerfile` and a single image name; building a second directory's image needs a corresponding update there too (e.g. a matrix strategy across paths), mirroring the `.images_matrix` pattern `.gitlab-ci.yml` already uses for exactly this purpose.
