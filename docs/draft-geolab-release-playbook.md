@@ -46,23 +46,10 @@ pipeline, which builds and pushes the production image to AWS ECR. GitHub is the
 for *what version something is and what changed*; GitLab is the source of truth for *what's
 actually running in production* — a human decides when those become the same thing.
 
-```mermaid
-flowchart TD
-    A["Contributor commits\nfeat:/fix:/feat!: on geolab-base/*"] --> B["release-please opens/updates\nRelease PR: VERSION + CHANGELOG.md"]
-    B --> C{"Maintainer merges\nthe Release PR?"}
-    C -- merge --> D["GitHub tags a release\ne.g. v1.3.0"]
-    D --> E["build-push.yml triggers\non release: published"]
-    E --> F["Dev image built & pushed to GHCR\ntagged 1.3.0"]
-    F --> G{"Ready for\nproduction?"}
-    G -- "open MR" --> H["Merge request opened against\nthe GitLab mirror of the repo"]
-    H --> I{"Maintainer merges\nthe MR?"}
-    I -- merge --> J[".gitlab-ci.yml triggers"]
-    J --> K["Production image built &\npushed to AWS ECR"]
+![Diagram of the release pipeline: a commit on GitHub flows through release-please's Release PR, a GitHub release, the dev build to GHCR, then a separate human-triggered merge request to the GitLab mirror promotes to production via .gitlab-ci.yml to AWS ECR. Diamond-shaped nodes are human decision points.](images/release-pipeline.png)
 
-    style C fill:#fff3cd,stroke:#856404,color:#000
-    style G fill:#fff3cd,stroke:#856404,color:#000
-    style I fill:#fff3cd,stroke:#856404,color:#000
-```
+*Source: [`images/release-pipeline.mmd`](images/release-pipeline.mmd) (Mermaid). Regenerate with
+`mmdc -i docs/images/release-pipeline.mmd -o docs/images/release-pipeline.png -b white -s 3`.*
 
 *Yellow nodes are human decisions — nothing in this pipeline auto-promotes to production.*
 

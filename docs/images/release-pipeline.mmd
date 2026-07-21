@@ -1,0 +1,15 @@
+flowchart LR
+    A["Contributor commits\nfeat:/fix:/feat!: on geolab-base/*"] --> B["release-please opens/updates\nRelease PR: VERSION + CHANGELOG.md"]
+    B --> C{"Maintainer merges\nthe Release PR?"}
+    C -- merge --> D["GitHub tags a release\ne.g. v1.3.0"]
+    D --> E["build-push.yml triggers\non release: published"]
+    E --> F["Dev image built & pushed to GHCR\ntagged 1.3.0"]
+    F --> G{"Ready for\nproduction?"}
+    G -- "open MR" --> H["Merge request opened against\nthe GitLab mirror of the repo"]
+    H --> I{"Maintainer merges\nthe MR?"}
+    I -- merge --> J[".gitlab-ci.yml triggers"]
+    J --> K["Production image built &\npushed to AWS ECR"]
+
+    style C fill:#fff3cd,stroke:#856404,color:#000
+    style G fill:#fff3cd,stroke:#856404,color:#000
+    style I fill:#fff3cd,stroke:#856404,color:#000
