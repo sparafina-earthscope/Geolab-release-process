@@ -28,29 +28,26 @@ This repo (`GeoLab-release-process`) is a sandbox that prototypes a full release
 `geolab-base`, intended to be rolled out to the real repo,
 [earthscope/Geolab](https://github.com/earthscope/Geolab).
 
+### Terms
+
+- **semver** = version numbers shaped `MAJOR.MINOR.PATCH`
+- **release-please** = the GitHub action that reads commits and proposes the version/changelog
+- **GHCR** = GitHub Container Registry, where dev images get pushed (`ghcr.io/...`).
+
 ### The process, end to end
 
 **All changes are made on a branch and merged via a pull request — never committed directly to
-`main`.** This isn't just house style: release-please only scans commits that have actually
-landed on `main` (see [§7](#7-how-the-pipeline-works-end-to-end)), so a PR is also the review
-checkpoint before a commit message's type/scope becomes permanent, versioning-affecting history.
+`main`.** The release-please GitHub action only scans commits that have landed on `main` (see [§7](#7-how-the-pipeline-works-end-to-end)), a pull request (PR) is also the review checkpoint before a commit message's type or scope becomes permanent affecting versioning history.
 
-A contributor creates a branch, commits [Conventional Commits](https://www.conventionalcommits.org/)
-touching `geolab-base/*`, and opens a PR against `main`. The message's type (`fix:`/`feat:`/`feat!:`)
-says what kind of change it is, and that's the only thing that drives versioning; nobody
-hand-edits a version number or `CHANGELOG.md`. Once the PR is reviewed and merged,
-[release-please](https://github.com/googleapis/release-please) turns the new commit(s) on `main`
-into a standing "Release PR" containing just a version bump and a changelog entry, derived
-entirely from the commit messages since the last release. A maintainer merges *that* PR when
-ready to cut a release — the one deliberate step in this half of the process — which tags a real
-GitHub Release. That release triggers a GitHub Actions build that pushes a **dev** image to
-GHCR, tagged with exactly the released version.
+A contributor creates a branch, commits [Conventional Commits](https://www.conventionalcommits.org/) changes, and opens a PR against `main`. The message's type (`fix:`/`feat:`/`feat!:`) sets the kind of change which drives versioning. Hand-edits a version number or `CHANGELOG.md` has no effect. 
 
-Promoting that version to **production** is a second, deliberate step, not automatic: a
-maintainer opens a merge request against the GitLab mirror of the repo, bringing that same
-released commit over. Merging *that* MR triggers `earthscope/Geolab`'s existing GitLab CI
-pipeline, which builds and pushes the production image to AWS ECR. GitHub is the source of truth
-for *what version something is and what changed*; GitLab is the source of truth for *what's
+Once the PR is reviewed and merged, [release-please](https://github.com/googleapis/release-please) turns the new commit(s) on `main` into a "Release PR" containing just a version bump and a changelog entry, derived entirely from the commit messages since the last release. 
+
+A maintainer merges *that* PR when ready to cut a release — the one deliberate step in this half of the process — which tags a real GitHub Release. That release triggers a GitHub actions build that pushes a **dev** image to GitHub Container Registry (GHCR) that is tagged with the released version.
+
+Promoting that version to **production** is a second, deliberate step. A maintainer opens a merge request (MR) against the GitLab mirror of the repo, bringing that same released commit over. Merging triggers `earthscope/Geolab`'s existing GitLab CI pipeline, which builds and pushes the production image to AWS ECR. 
+
+GitHub is the source of truth for *what version something is and what changed*; GitLab is the source of truth for *what's
 actually running in production* — a human decides when those become the same thing.
 
 ![Diagram of the release pipeline: a contributor branches and opens a PR, which once merged to main flows through release-please's Release PR, a GitHub release, the dev build to GHCR, then a separate human-triggered merge request to the GitLab mirror promotes to production via .gitlab-ci.yml to AWS ECR. Diamond-shaped nodes are human decision points.](images/release-pipeline.png)
@@ -62,7 +59,7 @@ actually running in production* — a human decides when those become the same t
 
 ## 2. Quick start
 
-For anyone who just needs to know what to type, in four sentences:
+For the impatient these are four steps to release an image:
 
 0. **Always work on a branch.** Never commit directly to `main` — open a PR and get it merged,
    every time, no exceptions for "small" changes.
@@ -78,8 +75,11 @@ Cheat sheet:
 
 ```text
 Before any of this: create a branch, never commit to main directly.
+
 Fixed something, or upgraded/downgraded/pinned a package? -> fix: describe it
+
 Added or removed a package?                               -> feat: describe what changed
+
 Swapped the base image? (the ONLY thing that's major)      -> feat!: describe it, plus a
                                                                BREAKING CHANGE: footer
 Just cleanup/docs/CI?                                       -> chore: / docs: / ci:
@@ -87,16 +87,12 @@ Just cleanup/docs/CI?                                       -> chore: / docs: / 
 Then: push the branch, open a PR, get it reviewed and merged.
 ```
 
-Terms: **semver** = version numbers shaped `MAJOR.MINOR.PATCH`; **release-please** = the bot that
-reads commits and proposes the version/changelog; **GHCR** = GitHub Container Registry, where dev
-images get pushed (`ghcr.io/...`).
-
 See [§3](#3-conventional-commit-reference) for the full rules, and [§4](#4-writing-commits-correctly)
 before typing a `!` at an interactive shell prompt.
 
 ## 3. Conventional commit reference
 
-Every commit that should affect the version or changelog follows this format:
+Every commit that affects the version or changelog follows this format:
 
 ```text
 <type>[optional scope]: <description>
@@ -114,18 +110,11 @@ Every commit that should affect the version or changelog follows this format:
 | `feat:` | minor (`0.x.0`) | Adding or removing a package, tool, or capability from the image |
 | `feat!:` or a `BREAKING CHANGE:` footer | major (`x.0.0`) | Base image swap. This is the *only* case that qualifies for a major bump — nothing else in this repo does. |
 
-release-please only reads the commit message's type prefix — it never inspects the diff, so *how*
-a package was installed doesn't affect its classification. Adding a package via `apt.txt`,
-`environment.yml`, `requirements.txt`, or by building it from source in a Dockerfile `RUN` step
-are all equally "adding a package" (`feat:`, minor). Don't confuse "building a tool from its
-source repository" with a base image swap — only changing the Dockerfile's `FROM` line qualifies
-for `feat!:`.
+release-please only reads the commit message's type prefix — it never inspects the diff, *how* a package was installed doesn't affect its classification. Adding a package via `apt.txt`, `environment.yml`, `requirements.txt`, or by building it from source in a Dockerfile `RUN` step are all equally "adding a package" (`feat:`, minor). Don't confuse "building a tool from its source repository" with a base image swap — only changing the Dockerfile's `FROM` line qualifies for `feat!:`.
 
-Other changes to `geolab-base/Dockerfile` that are neither a package change nor a base image swap
-— e.g. editing `ENV`/`LABEL`/`ARG` defaults, `CMD`, or the `start` entrypoint script — aren't
-explicitly covered by the table above either. Classify these by what they actually do: a bug fix
-or behavior correction is `fix:`, a new capability is `feat:`. There's no separate rule for
-"Dockerfile plumbing."
+Other changes to `geolab-base/Dockerfile` that are neither a package change nor a base image swap, e.g. editing `ENV`/`LABEL`/`ARG` defaults, `CMD`, or the `start` entrypoint script are not explicitly covered by the table above either.
+
+Classify these by what they actually do: a bug fix or behavior correction is `fix:`, a new capability is `feat:`. There's no separate rule for changes to Dockerfile plumbing.
 
 ### Types that do not affect versioning
 
@@ -158,22 +147,19 @@ chore: update .gitignore
 
 ### Scope
 
-The optional `(scope)` names the part of the repo affected, e.g. `(geolab-base)`, `(build-push)`.
-It's for changelog readability and does not affect the version bump logic.
+The optional `(scope)` names the part of the repo affected, e.g. `(geolab-base)`, `(geolab-gpu)`. It's for changelog readability and does not affect the version bump logic.
 
-**Tip:** if you're not sure whether something is a `fix` or a `feat`, ask "did I add something
-new, or repair something that was broken/wrong?" New = `feat`. Repaired = `fix`.
+**Tip:** if you're not sure whether something is a `fix` or a `feat`, ask "did I add something new, or repair something that was broken/wrong?" New = `feat`. Repaired = `fix`.
 
 ## 4. Writing commits correctly
 
-**Start every change with a branch — do this before any of the commit examples below:**
+**Start every change with a branch, do this before any of the commit examples below:**
 
 ```bash
 git checkout -b fix/pin-numpy   # or feat/..., named for what you're actually doing
 ```
 
-Commit on that branch, push it, and open a PR against `main`. Committing directly to `main` skips
-review and is not how changes get made here, no matter how small.
+Commit on that branch, push it, and open a PR against `main`. Committing directly to `main` skips review and is not how changes get made here, no matter how small.
 
 A single-line `fix:`/`feat:` commit needs nothing special:
 
@@ -182,8 +168,7 @@ git commit -m "fix(geolab-base): pin numpy to 1.26.4 to fix build failure"
 git commit -m "feat(geolab-base): add scipy to environment.yml"
 ```
 
-For a commit with a body but no footer, stack `-m` flags — the first becomes the subject line,
-each additional one becomes its own paragraph:
+For a commit with a body but no footer, stack `-m` flags — the first becomes the subject line, each additional one becomes its own paragraph:
 
 ```bash
 git commit -m "fix(geolab-base): pin numpy to 1.26.4" \
@@ -199,27 +184,20 @@ git commit -m 'feat!: bump base image from python:3.11 to python:3.12' \
 
 ### The `!` quoting gotcha
 
-`!` triggers history expansion in interactive bash/zsh, and **double quotes don't protect against
-it** — `"feat!: ..."` fails interactively with `zsh: illegal modifier:` (zsh parses `!:` as a
-history-event modifier). This only bites interactive shells; it's not an issue in scripts/CI.
-Ways to avoid it, in order of preference:
+`!` triggers history expansion in interactive bash/zsh, and **double quotes don't protect against it**. For example, `"feat!: ..."` fails interactively with `zsh: illegal modifier:` (zsh parses `!:` as a history-event modifier). This only occurs interactive shells; it's not an issue in scripts/CI. Ways to avoid it, in order of preference:
 
 - **Single quotes — preferred.** `git commit -m 'feat!: ...'`. Verified safe and correct.
 - **Skip `-m`, use your editor.** Plain `git commit` opens `$EDITOR`, sidestepping shell quoting
   entirely. Good fallback if you're ever unsure.
-- **Don't use `\!` inside double quotes.** It avoids the shell error, but leaves a literal
-  backslash in the actual commit message — verified directly: `git commit -m "feat\!: test"`
-  produces the commit message `feat\!: test`, backslash and all. release-please's parser won't
-  recognize that as a breaking change.
-- Disabling history expansion for the whole session (`set +H` in bash, `unsetopt banghist` in
-  zsh) also works, but it's a blunt, session-wide setting — not worth it for one commit.
+- **Don't use `\!` inside double quotes.** It avoids the shell error, but leaves a literal backslash in the actual commit message — verified directly: `git commit -m "feat\!: test"` produces the commit message `feat\!: test`, backslash and all. release-please's parser won't recognize that as a breaking change.
+- Disabling history expansion for the whole session (`set +H` in bash, `unsetopt banghist` in zsh) also works, but it's a blunt, session-wide setting — not worth it for one commit.
 
-For longer messages, skip `-m` and let git open your editor (respects `core.editor`/`$EDITOR`),
-easier for multi-paragraph bodies and footers:
+For longer messages, skip `-m` and let git open your editor (respects `core.editor`/`$EDITOR`), easier for multi-paragraph bodies and footers:
 
 ```bash
 git commit
 ```
+
 ```text
 feat(geolab-base): add scipy to environment.yml
 
@@ -228,223 +206,154 @@ Needed for the gnss notebooks added in this PR.
 Refs: CRO-431
 ```
 
-A `git commit --amend` works the same way for fixing a type/scope on the most recent commit
-before pushing.
+A `git commit --amend` works the same way for fixing a type/scope on the most recent commit before pushing.
 
 ## 5. Reverting a change
 
-`git revert` produces a message like `Revert "feat(geolab-base): add jq via apt.txt"`. That's not
-valid Conventional Commits syntax, and release-please's parser can't read it — it's silently
-dropped with no error. In practice, reverting a `feat:`/`fix:` commit does **not** undo its
-effect: the original commit is still counted in full, so the next release still bumps the version
-and still lists the reverted change in `CHANGELOG.md`, as if it had shipped.
+`git revert` produces a message like `Revert "feat(geolab-base): add jq via apt.txt"`. That's not valid Conventional Commits syntax, and release-please's parser can't read it. It's silently dropped with no error.
 
-Rewriting the revert with valid syntax (e.g. `revert(geolab-base): add jq via apt.txt`, with a
-`This reverts commit <sha>.` footer) doesn't fix this either. release-please recognizes `revert:`
-as its own type with its own `### Reverts` changelog section, but that does not cancel out or
-remove the original commit's entry or version bump — the changelog ends up showing *both* the
-original change and its revert, and the version still bumps as though the original change stuck.
+In practice, reverting a `feat:`/`fix:` commit does **not** undo its effect: the original commit is still counted in full, so the next release still bumps the version and still lists the reverted change in `CHANGELOG.md`, as if it had shipped.
 
-**release-please has no built-in way to treat a revert as a net no-op.** If a change needs to be
-fully retracted before its effect on versioning/the changelog:
+Rewriting the revert with valid syntax (e.g. `revert(geolab-base): add jq via apt.txt`, with a `This reverts commit <sha>.` footer) doesn't fix this either.
 
-- **Best, if the commit hasn't been released yet:** remove it from history (`git rebase`/`reset`)
-  before it's ever picked up into a Release PR, rather than reverting it forward.
-- **If it's already in an open, unmerged Release PR:** edit that PR's branch directly to drop the
-  change, instead of adding a revert commit to `main`.
-- **If it's already been released:** don't rely on `git revert`'s default message — write the
-  undo as an ordinary new commit (`fix:`/`feat:` as appropriate to what the undo actually does).
+release-please recognizes `revert:` as its own type with its own `### Reverts` changelog section, but that does not cancel out or remove the original commit's entry or version bump. The changelog ends up showing *both* the original change and its revert, and the version still bumps as though the original change stuck.
+
+**release-please has no built-in way to treat a revert as a net no-op.** If a change needs to be fully retracted before its effect on versioning/the changelog:
+
+- **Best, if the commit hasn't been released yet:** remove it from history (`git rebase`/`reset`) before it's ever picked up into a Release PR, rather than reverting it forward.
+- **If it's already in an open, unmerged Release PR:** edit that PR's branch directly to drop the change, instead of adding a revert commit to `main`.
+- **If it's already been released:** don't rely on `git revert`'s default message; write the undo as an ordinary new commit (`fix:`/`feat:` as appropriate to what the undo actually does).
 
 ## 6. What release-please does not see
 
-release-please is driven entirely by git commit messages. It never inspects a diff, a GitHub repo
-setting, a secret, or anything else that isn't a git commit. Three consequences are easy to miss:
+release-please is driven entirely by git commit messages. It never inspects a diff, a GitHub repo setting, a secret, or anything else that isn't a git commit. Three consequences are easy to miss:
 
-**Only commits that touch `geolab-base/` count.** This repo's package path is `geolab-base` (see
-`release-please-config.json`). A commit is only considered for versioning/changelog purposes if
-its diff touches a file under `geolab-base/` — regardless of its type prefix. A
-`fix:`/`feat:`/`feat!:` commit that only touches `.github/workflows/*.yml`,
-`release-please-config.json`, root `README.md`, `.gitlab-ci.yml`, `CODEOWNERS`, or `docs/*.md` has
+**Only commits that touch `geolab-base/` count.** This repo's package path is `geolab-base` (see `release-please-config.json`). A commit is only considered for versioning/changelog purposes if its diff touches a file under `geolab-base/`, regardless of its type prefix.
+
+A `fix:`/`feat:`/`feat!:` commit that only touches `.github/workflows/*.yml`, `release-please-config.json`, root `README.md`, `.gitlab-ci.yml`, `CODEOWNERS`, or `docs/*.md` has
 zero effect on the version; it's silently excluded, the same as a `chore:` commit would be.
-Verified directly against this repo: a `fix(build-push): ...` commit that only touched
-`build-push.yml` was skipped with "No user facing commits found." If you're changing CI/release
-automation rather than the image, `chore:`/`ci:`/`docs:` is still the right type — just don't
-expect a `fix:`/`feat:` on those files to bump anything either way.
 
-**Squash-merging would break this model.** release-please reads whatever commits actually exist
-in `main`'s history. If a PR is squash-merged, only the single squashed commit's message is ever
-seen — the individual commits inside that PR are discarded from history entirely. This repo
-doesn't currently squash-merge feature work, but if that changes, it's the squash commit's
-message (often defaulted to the PR title) that needs to follow Conventional Commits.
+Verified directly against this repo: a `fix(build-push): ...` commit that only touched `build-push.yml` was skipped with "No user facing commits found."
 
-**It doesn't read the diff at all.** Everything past the type prefix is decorative to
-release-please — it doesn't know or care whether a commit added a package or rewrote the whole
-Dockerfile. See [§5](#5-reverting-a-change) for how far this goes: a revert doesn't cancel
-anything out, because release-please has no notion of "this undoes that."
+If you're changing CI/release automation rather than the image, `chore:`/`ci:`/`docs:` is still the right type; don't expect a `fix:`/`feat:` on those files to bump anything either way.
+
+**Squash-merging would break this model.** release-please reads whatever commits actually exist in `main`'s history. If a PR is squash-merged, only the single squashed commit's message is ever seen. Individual commits inside that PR are discarded from history entirely.
+
+**It doesn't read the diff at all.** Everything past the type prefix is decorative to release-please. It doesn't know whether a commit added a package or rewrote the whole Dockerfile. See [§5](#5-reverting-a-change) for how far this goes: a revert doesn't cancel anything out, because release-please has no notion of "this undoes that."
 
 ## 7. How the pipeline works end-to-end
 
 1. **Contributor works on a branch and commits using Conventional Commits, then opens a PR.**
-   Never directly on `main` — every PR merged to `main` contains commits following the format
-   above, and the PR is the review checkpoint before those messages become permanent history.
-2. **release-please runs on every push to `main`** — i.e., every time a PR is merged. It scans
-   all commits since the last release tag and classifies them by type.
-3. **release-please opens or updates a "Release PR."** This PR's diff is just two things: the
-   version file (`geolab-base/VERSION`) bumped to the next semantic version, and
-   `geolab-base/CHANGELOG.md` with a new section listing every `feat:`/`fix:`/breaking commit
-   since the last release, described using the commit messages themselves. No new code changes
-   are introduced by this PR — it stays open and keeps updating itself as more commits land on
-   `main`, until someone merges it.
-4. **A maintainer reviews and merges the Release PR** when ready to cut a release. This is the
-   one manual/human step in the process; nothing is auto-committed to `main` directly.
-5. **On merge, release-please tags the release.** It creates a git tag (e.g. `v1.3.0`) and a
-   corresponding GitHub Release with the changelog entry as the release notes.
-6. **The GitHub Release publish event triggers the build/push pipeline.** `build-push.yml`
-   listens for `release: types: [published]`, checks out the repo at that release, reads the
-   version straight out of `geolab-base/VERSION` (which release-please just wrote as part of the
-   merged Release PR), and tags the dev image with exactly that value. Reading the file directly
-   instead of re-deriving the version from the git tag name is what guarantees the image tag and
-   the package release are always the same version.
+Never directly on `main`. Every PR merged to `main` contains commits following the format above, and the PR is the review checkpoint before those messages become permanent history.
+
+2. **release-please runs on every push to `main`**, i.e., every time a PR is merged. It scans all commits since the last release tag and classifies them by type.
+
+3. **release-please opens or updates a "Release PR."** This PR's diff is just two things: the version file (`geolab-base/VERSION`) bumped to the next semantic version, and `geolab-base/CHANGELOG.md` with a new section listing every `feat:`/`fix:`/breaking commit since the last release, described using the commit messages themselves. No new code changes are introduced by this PR. It stays open and keeps updating itself as more commits land on `main`, until someone merges it.
+
+4. **A maintainer reviews and merges the Release PR** when ready to cut a release. This is the one manual/human step in the process; nothing is auto-committed to `main` directly.
+
+5. **On merge, release-please tags the release.** It creates a git tag (e.g. `v1.3.0`) and a corresponding GitHub Release with the changelog entry as the release notes.
+
+6. **The GitHub Release publish event triggers the build/push pipeline.** `build-push.yml` listens for `release: types: [published]`, checks out the repo at that release, reads the version straight out of `geolab-base/VERSION` (which release-please just wrote as part of the merged Release PR), and tags the dev image with exactly that value. Reading the file directly instead of re-deriving the version from the git tag name is what guarantees the image tag and the package release are always the same version.
 
 ## 8. One-time setup reference
 
 To enable this process, a repository needs:
 
-- `release-please-config.json` at the repo root, `release-type: simple` (appropriate for a
-  non-npm, non-language-specific repo), pointing at the version file to track
-  (`version-file: "VERSION"`), with `include-component-in-tag: false` (see the "bugs already
-  fixed" list in [§9](#9-rolling-this-out-to-earthscopegeolab)).
+- `release-please-config.json` at the repo root, `release-type: simple` (appropriate for a non-npm, non-language-specific repo), pointing at the version file to track (`version-file: "VERSION"`), with `include-component-in-tag: false` (see the "bugs already fixed" list in [§9](#9-rolling-this-out-to-earthscopegeolab)).
 - `.release-please-manifest.json` tracking the current version per path.
-- `.github/workflows/release-please.yml`, running `googleapis/release-please-action` on push to
-  `main`, authenticated with a PAT (not the default token — see [§9](#9-rolling-this-out-to-earthscopegeolab)).
-- `.github/workflows/build-push.yml`, triggered by `release: types: [published]`, reading
-  `geolab-base/VERSION` and pushing to GHCR.
+- `.github/workflows/release-please.yml`, running `googleapis/release-please-action` on push to `main`, authenticated with a PAT (not the default token. See [§9](#9-rolling-this-out-to-earthscopegeolab)).
+- `.github/workflows/build-push.yml`, triggered by `release: types: [published]`, reading `geolab-base/VERSION` and pushing to GHCR.
 - `geolab-base/Dockerfile` with `COPY --chown=<runtime-user>:<runtime-user> VERSION /opt/VERSION`.
 
 ## 9. Rolling this out to earthscope/Geolab
 
 ### Decisions already made
 
-**This supplements the GitLab pipeline, it doesn't replace it.** GitHub Actions + release-please
-becomes the *dev* pipeline; `earthscope/Geolab`'s existing GitLab CI → AWS ECR pipeline stays the
-actual production release, promoted via a deliberate, separate step (see
-[§10](#10-promoting-a-dev-release-to-production-via-gitlab)).
+**This supplements the GitLab pipeline, it doesn't replace it.** GitHub Actions + release-please becomes the *dev* pipeline; `earthscope/Geolab`'s existing GitLab CI → AWS ECR pipeline stays the actual production release, promoted via a deliberate, separate step (see [§10](#10-promoting-a-dev-release-to-production-via-gitlab)).
 
-**Starting version:** `earthscope/Geolab` already has real, currently-deployed images
-(timestamp-versioned, on ECR) — there's no natural "1.0.0" the way there was in this sandbox.
-Pick a starting version that makes sense for the team (e.g. `1.0.0` for a fresh semver start, or
-something like `2025.1.0` for continuity with the existing timestamp scheme), and force it
-explicitly via `Release-As:` (Step 5 below) — an arbitrary manifest value alone won't produce it,
-because real commits already in the repo's history get counted too.
+**Starting version:** `earthscope/Geolab` already has real, currently-deployed images (timestamp-versioned, on ECR) — there's no natural "1.0.0" the way there was in this sandbox.
+
+Pick a starting version that makes sense for the team (e.g. `1.0.0` for a fresh semver start, or something like `2025.1.0` for continuity with the existing timestamp scheme). Force it explicitly via `Release-As:` (Step 5 below) — an arbitrary manifest value alone won't produce it, because real commits already in the repo's history get counted too.
 
 ### Steps
 
-Steps 2–5 are all changes to files in the repo — make them on a single branch, pushed and opened
-as one PR, exactly like any other change (see [§4](#4-writing-commits-correctly)). Nothing here
-gets pushed directly to `main`, including the one-time bootstrapping commit in Step 5.
+Steps 2–5 are all changes to files in the repo. Make them on a single branch, pushed and opened as one PR, exactly like any other change (see [§4](#4-writing-commits-correctly)). Nothing here gets pushed directly to `main`, including the one-time bootstrapping commit in Step 5.
 
-1. **`.github/CODEOWNERS` already gates this.** It requires `@earthscope/cloud-enablement` to
-   approve any change under `.github/`. Every workflow file below lives there — loop them in
-   early rather than at PR time.
+1. **`.github/CODEOWNERS` already gates this.** It requires `@earthscope/cloud-enablement` to approve any change under `.github/`. Every workflow file below lives there — loop them in early rather than at PR time.
 
-2. **Copy the workflow files, mostly as-is:** `.github/workflows/release-please.yml`,
-   `.github/workflows/build-push.yml`, `.github/workflows/enforce-breaking-change-policy.yml`. No
-   path adaptation needed — both repos use `geolab-base/Dockerfile` at the same relative path,
-   and `build-push.yml`'s `IMAGE_NAME: ${{ github.repository }}/geolab-base` computes correctly
-   for any repo without editing.
+2. **Copy the workflow files, mostly as-is:** 
+- `.github/workflows/release-please.yml`
+- `.github/workflows/build-push.yml` 
+- `.github/workflows/enforce-breaking-change-policy.yml`. 
 
-3. **Copy and adapt `release-please-config.json` / `.release-please-manifest.json`.** Copy the
-   config as-is (package path `geolab-base` matches). For the manifest, set the starting version
-   to `0.0.0` deliberately (not the real target — see Step 5):
+No path adaptation needed — both repos use `geolab-base/Dockerfile` at the same relative path, and `build-push.yml`'s `IMAGE_NAME: ${{ github.repository }}/geolab-base` computes correctly for any repo without editing.
+
+3. **Copy and adapt `release-please-config.json` / `.release-please-manifest.json`.** Copy the config as-is (package path `geolab-base` matches). For the manifest, set the starting version to `0.0.0` deliberately (not the real target, see Step 5):
+
    ```json
    { "geolab-base": "0.0.0" }
    ```
 
-4. **Add `geolab-base/VERSION` and update the Dockerfile.** `earthscope/Geolab`'s Dockerfile has
-   no version handling yet. Add `geolab-base/VERSION` containing the target starting version, and
-   add this line to the Dockerfile:
+4. **Add `geolab-base/VERSION` and update the Dockerfile.** `earthscope/Geolab`'s Dockerfile has no version handling yet. Add `geolab-base/VERSION` containing the target starting version, and add this line to the Dockerfile:
+
    ```dockerfile
    COPY --chown=jovyan:jovyan VERSION /opt/VERSION
    ```
-   Verified directly against the real `pangeo/base-image:latest` that `earthscope/Geolab` uses:
-   the runtime user is `jovyan` (uid 1000), and neither `/opt` nor `/var` is writable by that
-   user by default — only the `--chown` on the file itself makes it writable, without loosening
-   the directory. Don't skip it.
 
-   Do **not** add `geolab-base/CHANGELOG.md` — leave it absent; release-please creates it fresh
-   from real commit history the first time it opens a Release PR. A hand-seeded placeholder just
-   creates a duplicate-heading mess to clean up later (hit this in the sandbox).
+Verified directly against the real `pangeo/base-image:latest` that `earthscope/Geolab` uses: the runtime user is `jovyan` (uid 1000), and neither `/opt` nor `/var` is writable by that user by default, only the `--chown` on the file itself makes it writable, without loosening the directory. Don't skip it.
 
-5. **Force the real starting version.** With the manifest at `0.0.0` and real commit history
-   already present, an ordinary merge would compute *some* version, but not necessarily the
-   right one. Add this commit to the same branch as Steps 2–4, after those files are in place:
+Do **not** add `geolab-base/CHANGELOG.md` — leave it absent; release-please creates it fresh from real commit history the first time it opens a Release PR. A hand-seeded placeholder just creates a duplicate-heading mess to clean up later (hit this in the sandbox).
+
+5. **Force the real starting version.** With the manifest at `0.0.0` and real commit history already present, an ordinary merge would compute *some* version, but not necessarily the right one. Add this commit to the same branch as Steps 2–4, after those files are in place:
+
    ```bash
    git commit --allow-empty -m 'chore: set initial release version' \
      -m 'Release-As: 1.0.0'
    ```
-   (substitute the actual target version). It goes into the same PR as everything else in this
-   section — merge it, don't push it to `main` directly.
 
-6. **Repo settings — do this before merging the PR from Steps 2–5.** Two settings must be in
-   place, or the pipeline silently does nothing or fails partway through:
-   - **Create a PAT and store it as the `RELEASE_PLEASE_TOKEN` secret.** `release-please.yml`
-     authenticates with this instead of the default `GITHUB_TOKEN`. Not optional: GitHub does not
-     let a release/tag created via the default token trigger other workflows, which means
-     `build-push.yml`'s `release: published` trigger never fires — confirmed empirically in the
-     sandbox (a real GitHub Release existed and `build-push.yml` had never once run). Create a
-     fine-grained PAT scoped to the repo with **Contents: Read/Write** and
-     **Pull requests: Read/Write**, then `gh secret set RELEASE_PLEASE_TOKEN --repo earthscope/Geolab`.
-   - **Enable "Allow GitHub Actions to create and approve pull requests."** Settings → Actions →
-     General → Workflow permissions. Without it, release-please fails at the last step with
-     `GitHub Actions is not permitted to create or approve pull requests`. Also settable via:
-     ```bash
-     gh api -X PUT repos/earthscope/Geolab/actions/permissions/workflow \
-       -f default_workflow_permissions=read \
-       -F can_approve_pull_request_reviews=true
-     ```
+(substitute the actual target version). It goes into the same PR as everything else in this section; merge it, don't push it to `main` directly.
 
-7. **Copy the docs, with names/URLs updated.** Update every reference to this sandbox's repo
-   (`sparafina-earthscope/Geolab-release-process`) to `earthscope/Geolab`. The rules themselves
-   apply unchanged.
+6. **Repo settings — do this before merging the PR from Steps 2–5.** Two settings must be in place, or the pipeline silently does nothing or fails partway through:
+
+- **Create a PAT and store it as the `RELEASE_PLEASE_TOKEN` secret.** `release-please.yml` authenticates with this instead of the default `GITHUB_TOKEN`. 
+
+Not optional: GitHub does not let a release/tag created via the default token trigger other workflows, which means `build-push.yml`'s `release: published` trigger never fires, confirmed empirically in the sandbox (a real GitHub Release existed and `build-push.yml` had never once run). 
+
+Create a fine-grained PAT scoped to the repo with **Contents: Read/Write** and **Pull requests: Read/Write**, then `gh secret set RELEASE_PLEASE_TOKEN --repo earthscope/Geolab`.
+
+- **Enable "Allow GitHub Actions to create and approve pull requests."** Settings → Actions → General → Workflow permissions. Without it, release-please fails at the last step with `GitHub Actions is not permitted to create or approve pull requests`. Also settable via:
+
+```bash
+gh api -X PUT repos/earthscope/Geolab/actions/permissions/workflow \
+-f default_workflow_permissions=read \
+-F can_approve_pull_request_reviews=true
+```
+
+7. **Copy the docs, with names/URLs updated.** Update every reference to this sandbox's repo (`sparafina-earthscope/Geolab-release-process`) to `earthscope/Geolab`. The rules themselves apply unchanged.
 
 8. **Test before trusting it:**
-   1. Push the branch from Steps 2–5 (workflow files, config, and the forcing commit together),
-      open the PR, confirm `actionlint` and the breaking-change-policy check both pass.
-   2. After merging to `main`, confirm `release-please` runs and opens a Release PR proposing the
-      target starting version.
-   3. Merge that PR. Confirm a real GitHub Release and tag get created.
-   4. Confirm `build-push.yml` actually runs off the `release: published` event (not just
-      `workflow_dispatch`) — this is the one that silently didn't work before the PAT was in
-      place.
-   5. Pull the resulting image from GHCR and check `/opt/VERSION` inside it matches the release
-      tag.
+   1. Push the branch from Steps 2–5 (workflow files, config, and the forcing commit together), open the PR, confirm `actionlint` and the breaking-change-policy check both pass.
+
+   2. After merging to `main`, confirm `release-please` runs and opens a Release PR proposing the target starting version.
+
+   3. Merge that PR. Confirm a real GitHub Release and tag get created. 4. Confirm `build-push.yml` actually runs off the `release: published` event (not just `workflow_dispatch`), this is the one that silently didn't work before the PAT was in place.
+
+   4. Pull the resulting image from GHCR and check `/opt/VERSION` inside it matches the release tag.
 
 ### Bugs already fixed in the files being copied — don't reintroduce them
 
-- **Lowercase image names.** `build-push.yml` lowercases the computed image name in a shell step
-  before tagging — `ghcr.io` rejects uppercase repo names, and `github.repository` preserves the
-  real repo's casing.
-- **`include-component-in-tag: false`** in `release-please-config.json`. Without it, release tags
-  are `geolab-base-v1.0.0` instead of `v1.0.0`, which breaks `docker/metadata-action`-style semver
-  detection and any hand-written git-ref parsing.
-- **Reading `geolab-base/VERSION` directly** in `build-push.yml`, rather than parsing it back out
-  of the git tag name. This guarantees the image tag and the release version are always
-  identical, and sidesteps the tag-format issue above entirely.
+- **Lowercase image names.** `build-push.yml` lowercases the computed image name in a shell step before tagging, `ghcr.io` rejects uppercase repo names, and `github.repository` preserves the real repo's casing.
+- **`include-component-in-tag: false`** in `release-please-config.json`. Without it, release tags are `geolab-base-v1.0.0` instead of `v1.0.0`, which breaks `docker/metadata-action`-style semver detection and any hand-written git-ref parsing.
+- **Reading `geolab-base/VERSION` directly** in `build-push.yml`, rather than parsing it back out of the git tag name. This guarantees the image tag and the release version are always identical, and sidesteps the tag-format issue above entirely.
 
 ## 10. Promoting a dev release to production via GitLab
 
-Everything above produces a dev image in GHCR and a version decided by release-please. Getting
-that same version built and pushed to AWS ECR for production is a **separate, deliberate action**
-— not automatic.
+Everything above produces a dev image in GHCR and a version decided by release-please. Getting that same version built and pushed to AWS ECR for production is a **separate, deliberate action**, not automatic.
 
-**Confirmed:** promotion is triggered by opening and merging a merge request on the GitLab-side
-copy of the repo. That merge is what kicks off `.gitlab-ci.yml`'s pipeline. This also confirms a
-GitHub↔GitLab mirror exists — an MR can't be opened otherwise.
+**Confirmed:** promotion is triggered by opening and merging a merge request on the GitLab repo. That merge is what kicks off `.gitlab-ci.yml`'s pipeline. This also confirms a GitHub↔GitLab mirror exists, an MR can't be opened otherwise.
 
-**Confirmed: it currently publishes with a timestamp, disconnected from `geolab-base/VERSION`.**
-Merging the MR as things stand today does **not** produce a matching version — it produces
-whatever `USE_TIMESTAMP_VERSION: "true"` generates, unrelated to the GitHub release. For "release
-the same version" to actually be true, `.gitlab-ci.yml` needs a real change:
+**Confirmed: it currently publishes with a timestamp, disconnected from `geolab-base/VERSION`.** Merging the MR as things stand today does **not** produce a matching version. It produces whatever `USE_TIMESTAMP_VERSION: "true"` generates, unrelated to the GitHub release. For "release the same version" to actually be true, `.gitlab-ci.yml` needs a real change:
 
 ```yaml
 variables:
@@ -456,84 +365,55 @@ variables:
   # something like IMAGE_VERSION or VERSION_FILE_PATH, pointed at geolab-base/VERSION
 ```
 
-Turning off `USE_TIMESTAMP_VERSION` is the certain part of this suggestion. What replaces it
-isn't — the shared `earthscope/infrastructure/gitlab-ci` template isn't visible from this repo,
-so its actual variable name for "use this explicit version" (or whether it supports reading a
-version file directly) is unknown. Options to raise with `@earthscope/cloud-enablement`, roughly
-in order of fit:
+Turning off `USE_TIMESTAMP_VERSION` is the certain part of this suggestion. What replaces it isn't. The shared `earthscope/infrastructure/gitlab-ci` template isn't visible from this repo, so its actual variable name for "use this explicit version" (or whether it supports reading a version file directly) is unknown. Options to raise with `@earthscope/cloud-enablement`, roughly in order of fit:
 
-- A variable that points at a version file (e.g. `VERSION_FILE_PATH: "geolab-base/VERSION"`) —
-  best fit, since that file is already the single source of truth release-please maintains.
-- A variable that takes an explicit version string (e.g. `IMAGE_VERSION`) — would need something
-  in the merge request itself (a CI/CD variable, a commit convention) to carry the version
-  through.
-- Deriving the version from the git ref, if the pipeline could be made tag-triggered instead of
-  MR-triggered — a bigger process change, since promotion is confirmed to go through an MR.
+- A variable that points at a version file (e.g. `VERSION_FILE_PATH: "geolab-base/VERSION"`) best fit, since that file is already the single source of truth release-please maintains.
 
-This is a change to a CODEOWNERS-gated file — `@earthscope/cloud-enablement` needs to make or
-approve it either way.
+- A variable that takes an explicit version string (e.g. `IMAGE_VERSION`) — would need something in the merge request itself (a CI/CD variable, a commit convention) to carry the version through.
 
-Once `.gitlab-ci.yml` is actually publishing from the repo's version instead of a timestamp, the
-shape of the promotion process is:
+- Deriving the version from the git ref, if the pipeline could be made tag-triggered instead of MR-triggered — a bigger process change, since promotion is confirmed to go through an MR.
 
-1. A GitHub release exists (e.g. `v1.2.0`) and has already been dev-tested via the GHCR image.
-   `geolab-base/VERSION` in that commit already reads `1.2.0`.
-2. Someone decides it's ready for production and opens a merge request bringing that commit into
-   the GitLab-side repo.
-3. Merging it triggers `.gitlab-ci.yml`, which builds `geolab-base` from that content and pushes
-   to AWS ECR.
-4. Confirm the resulting ECR image tag is `1.2.0`, not a timestamp, before considering it
-   promoted — verify this the first few times rather than assuming the fix took effect.
+This is a change to a CODEOWNERS-gated file that `@earthscope/cloud-enablement` needs to make or approve it either way.
 
-This keeps the two systems cleanly separated: GitHub/release-please is the source of truth for
-*what version something is and what changed*; GitLab is the source of truth for *what's actually
-running in production*, and a human decides when those become the same thing.
+Once `.gitlab-ci.yml` is actually publishing from the repo's version instead of a timestamp, the shape of the promotion process is:
+
+1. A GitHub release exists (e.g. `v1.2.0`) and has already been dev-tested via the GHCR image. `geolab-base/VERSION` in that commit already reads `1.2.0`.
+2. Someone decides it's ready for production and opens a merge request bringing that commit into the GitLab-side repo.
+3. Merging it triggers `.gitlab-ci.yml`, which builds `geolab-base` from that content and pushes to AWS ECR.
+4. Confirm the resulting ECR image tag is `1.2.0`, not a timestamp, before considering it promoted — verify this the first few times rather than assuming the fix took effect.
+
+This keeps the two systems cleanly separated: GitHub/release-please is the source of truth for *what version something is and what changed*
+
+GitLab is the source of truth for *what's actually running in production*, and a human decides when those become the same thing.
 
 ## 11. `pangeo/base-image` update cadence
 
-**It is not on a regular cycle — updates are entirely activity-driven, not scheduled.** Verified
-directly against the source repo's (`pangeo-data/pangeo-docker-images`) GitHub Actions workflows
-and the actual Docker Hub push history (627 tags, 507 distinct builds since March 2020).
+**It is not on a regular cycle — updates are entirely activity-driven, not scheduled.** Verified directly against the source repo's (`pangeo-data/pangeo-docker-images`) GitHub Actions workflows and the actual Docker Hub push history (627 tags, 507 distinct builds since March 2020).
 
 **Why it's not scheduled:**
-- `Build.yml` (rebuilds the image) triggers only on `push: branches: [master]` — purely reactive
-  to merged commits.
-- `Publish.yml` (creates the human-readable CalVer tags like `2026.06.04`) triggers only on
-  `push: tags: ['*']` — someone has to manually push a git tag to cut a "release."
-- The *only* cron in the repo is `WatchCondaForge.yml`, running daily (`0 0 * * *`) — but it
-  doesn't rebuild anything itself. It checks conda-forge for a new `pangeo-notebook` metapackage
-  version and, if found, opens a PR for a human maintainer to review and merge. A human merge is
-  still required before any image actually rebuilds.
+- `Build.yml` (rebuilds the image) triggers only on `push: branches: [master]`, reacts to merged commits.
+- `Publish.yml` (creates the human-readable CalVer tags like `2026.06.04`) triggers only on `push: tags: ['*']` — someone has to manually push a git tag to cut a "release."
+- The *only* cron in the repo is `WatchCondaForge.yml`, running daily (`0 0 * * *`), but it doesn't rebuild anything itself. It checks conda-forge for a new `pangeo-notebook` metapackage version and, if found, opens a PR for a human maintainer to review and merge. A human merge is still required before any image actually rebuilds.
 
 **What the actual history shows:**
-- 507 distinct builds over ~6.25 years — averages to roughly one every 4–5 days, but that average
-  is misleading. The real distribution is extremely bursty: 111 builds landed within an hour of
-  another build, another 137 within a day (active-development clusters), separated by long quiet
-  gaps.
-- Gaps as long as 62–108 days show up between builds, especially recently.
-- **The pace has slowed substantially.** In 2020–2022, updates landed roughly weekly. In the last
-  12–18 months, gaps between updates have been 89, 91, and 108 days — closer to once a quarter
-  now.
 
-**Practical takeaway:** since the digests this repo has pinned (`04bb14b`, `04681e6`) don't track
-`:latest`, and since the real `earthscope/Geolab` repo still uses `pangeo/base-image:latest`
-unpinned, there's no fixed cadence to plan a "check for updates" process around. Checking monthly
-would be more than sufficient given the current pace, but that's not guaranteed to hold — it
+- 507 distinct builds over ~6.25 years averages to roughly one every 4–5 days, but that average is misleading. The real distribution is extremely bursty: 111 builds landed within an hour of another build, another 137 within a day (active-development clusters), separated by long quiet gaps.
+
+- Gaps as long as 62–108 days show up between builds, especially recently.
+
+- **The pace has slowed substantially.** In 2020–2022, updates landed roughly weekly. In the last 12–18 months, gaps between updates have been 89, 91, and 108 days — closer to once a quarter now.
+
+**Practical takeaway:** since the digests this repo has pinned (`04bb14b`, `04681e6`) don't track `:latest`, and since the real `earthscope/Geolab` repo still uses `pangeo/base-image:latest` unpinned, there's no fixed cadence to plan a "check for updates" process around. 
+
+Checking monthly would be more than sufficient given the current pace, but that's not guaranteed to hold. It
 depends entirely on upstream maintainer activity, not a schedule.
 
 ## 12. Open questions
 
 Things this playbook flags as unresolved rather than assumed, carried over from the source docs:
 
-- **What variable (if any) does the `earthscope/infrastructure/gitlab-ci` shared template
-  support for an explicit version**, to replace `USE_TIMESTAMP_VERSION: "true"`? Needs
-  `@earthscope/cloud-enablement`. See [§10](#10-promoting-a-dev-release-to-production-via-gitlab).
-- **What's the actual starting version for `earthscope/Geolab`?** Needs a team decision before
-  Step 5 of the rollout in [§9](#9-rolling-this-out-to-earthscopegeolab) can run.
-- **Should `geolab-base/Dockerfile` pin `pangeo/base-image` to a digest instead of tracking
-  `:latest`?** Not decided either way here — [§11](#11-pangeobase-image-update-cadence) only
-  establishes that there's no update schedule to plan around, not what this repo should do about
-  it.
-- **This document's own status.** It's a draft consolidating four separate docs. Once reviewed,
-  decide whether it replaces them (with the originals removed or marked superseded) or continues
-  to exist alongside them.
+- **What variable (if any) does the `earthscope/infrastructure/gitlab-ci` shared template support for an explicit version**, to replace `USE_TIMESTAMP_VERSION: "true"`? Needs `@earthscope/cloud-enablement`. See [§10](#10-promoting-a-dev-release-to-production-via-gitlab).
+
+- **What's the actual starting version for `earthscope/Geolab`?** Needs a team decision before Step 5 of the rollout in [§9](#9-rolling-this-out-to-earthscopegeolab) can run.
+
+- **Should `geolab-base/Dockerfile` pin `pangeo/base-image` to a digest instead of tracking `:latest`?** Not decided either way here — [§11](#11-pangeobase-image-update-cadence) only establishes that there's no update schedule to plan around, not what this repo should do about it.
