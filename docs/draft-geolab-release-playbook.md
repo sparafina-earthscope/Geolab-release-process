@@ -26,21 +26,45 @@
 
 This repo (`GeoLab-release-process`) is a sandbox that prototypes a full release pipeline for
 `geolab-base`, intended to be rolled out to the real repo,
-[earthscope/Geolab](https://github.com/earthscope/Geolab). The pipeline has two halves:
+[earthscope/Geolab](https://github.com/earthscope/Geolab).
 
-- **Dev (GitHub):** contributors write [Conventional Commits](https://www.conventionalcommits.org/).
-  [release-please](https://github.com/googleapis/release-please) reads them, proposes a semantic
-  version + changelog via a standing "Release PR," and — once merged — a GitHub Actions workflow
-  builds and pushes a dev image to GHCR tagged with exactly that version.
-- **Production (GitLab):** `earthscope/Geolab` already has a separate, pre-existing GitLab CI
-  pipeline that builds and pushes to AWS ECR. This playbook does not replace it — production
-  promotion is a deliberate, separate step, described in
-  [§10](#10-promoting-a-dev-release-to-production-via-gitlab).
+### The process, end to end
 
-Version bumps and changelog entries are derived automatically from commit messages instead of
-being written by hand or guessed from a diff — the version number and changelog entry both come
-from what a contributor typed at commit time, so changelog entries describe the actual change
-instead of a generic placeholder.
+A contributor commits a [Conventional Commit](https://www.conventionalcommits.org/) touching
+`geolab-base/*` on GitHub — the message's type (`fix:`/`feat:`/`feat!:`) says what kind of change
+it is, and that's the only thing that drives versioning; nobody hand-edits a version number or
+`CHANGELOG.md`. [release-please](https://github.com/googleapis/release-please) turns that into a
+standing "Release PR" containing just a version bump and a changelog entry, derived entirely from
+the commit messages since the last release. A maintainer merges it when ready to cut a release —
+the one manual step so far — which tags a real GitHub Release. That release triggers a GitHub
+Actions build that pushes a **dev** image to GHCR, tagged with exactly the released version.
+
+Promoting that version to **production** is a second, deliberate step, not automatic: a
+maintainer opens a merge request against the GitLab mirror of the repo, bringing that same
+released commit over. Merging *that* MR triggers `earthscope/Geolab`'s existing GitLab CI
+pipeline, which builds and pushes the production image to AWS ECR. GitHub is the source of truth
+for *what version something is and what changed*; GitLab is the source of truth for *what's
+actually running in production* — a human decides when those become the same thing.
+
+```mermaid
+flowchart TD
+    A["Contributor commits\nfeat:/fix:/feat!: on geolab-base/*"] --> B["release-please opens/updates\nRelease PR: VERSION + CHANGELOG.md"]
+    B --> C{"Maintainer merges\nthe Release PR?"}
+    C -- merge --> D["GitHub tags a release\ne.g. v1.3.0"]
+    D --> E["build-push.yml triggers\non release: published"]
+    E --> F["Dev image built & pushed to GHCR\ntagged 1.3.0"]
+    F --> G{"Ready for\nproduction?"}
+    G -- "open MR" --> H["Merge request opened against\nthe GitLab mirror of the repo"]
+    H --> I{"Maintainer merges\nthe MR?"}
+    I -- merge --> J[".gitlab-ci.yml triggers"]
+    J --> K["Production image built &\npushed to AWS ECR"]
+
+    style C fill:#fff3cd,stroke:#856404,color:#000
+    style G fill:#fff3cd,stroke:#856404,color:#000
+    style I fill:#fff3cd,stroke:#856404,color:#000
+```
+
+*Yellow nodes are human decisions — nothing in this pipeline auto-promotes to production.*
 
 ## 2. Quick start
 
