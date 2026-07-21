@@ -30,14 +30,21 @@ This repo (`GeoLab-release-process`) is a sandbox that prototypes a full release
 
 ### The process, end to end
 
-A contributor commits a [Conventional Commit](https://www.conventionalcommits.org/) touching
-`geolab-base/*` on GitHub — the message's type (`fix:`/`feat:`/`feat!:`) says what kind of change
-it is, and that's the only thing that drives versioning; nobody hand-edits a version number or
-`CHANGELOG.md`. [release-please](https://github.com/googleapis/release-please) turns that into a
-standing "Release PR" containing just a version bump and a changelog entry, derived entirely from
-the commit messages since the last release. A maintainer merges it when ready to cut a release —
-the one manual step so far — which tags a real GitHub Release. That release triggers a GitHub
-Actions build that pushes a **dev** image to GHCR, tagged with exactly the released version.
+**All changes are made on a branch and merged via a pull request — never committed directly to
+`main`.** This isn't just house style: release-please only scans commits that have actually
+landed on `main` (see [§7](#7-how-the-pipeline-works-end-to-end)), so a PR is also the review
+checkpoint before a commit message's type/scope becomes permanent, versioning-affecting history.
+
+A contributor creates a branch, commits [Conventional Commits](https://www.conventionalcommits.org/)
+touching `geolab-base/*`, and opens a PR against `main`. The message's type (`fix:`/`feat:`/`feat!:`)
+says what kind of change it is, and that's the only thing that drives versioning; nobody
+hand-edits a version number or `CHANGELOG.md`. Once the PR is reviewed and merged,
+[release-please](https://github.com/googleapis/release-please) turns the new commit(s) on `main`
+into a standing "Release PR" containing just a version bump and a changelog entry, derived
+entirely from the commit messages since the last release. A maintainer merges *that* PR when
+ready to cut a release — the one deliberate step in this half of the process — which tags a real
+GitHub Release. That release triggers a GitHub Actions build that pushes a **dev** image to
+GHCR, tagged with exactly the released version.
 
 Promoting that version to **production** is a second, deliberate step, not automatic: a
 maintainer opens a merge request against the GitLab mirror of the repo, bringing that same
@@ -46,7 +53,7 @@ pipeline, which builds and pushes the production image to AWS ECR. GitHub is the
 for *what version something is and what changed*; GitLab is the source of truth for *what's
 actually running in production* — a human decides when those become the same thing.
 
-![Diagram of the release pipeline: a commit on GitHub flows through release-please's Release PR, a GitHub release, the dev build to GHCR, then a separate human-triggered merge request to the GitLab mirror promotes to production via .gitlab-ci.yml to AWS ECR. Diamond-shaped nodes are human decision points.](images/release-pipeline.png)
+![Diagram of the release pipeline: a contributor branches and opens a PR, which once merged to main flows through release-please's Release PR, a GitHub release, the dev build to GHCR, then a separate human-triggered merge request to the GitLab mirror promotes to production via .gitlab-ci.yml to AWS ECR. Diamond-shaped nodes are human decision points.](images/release-pipeline.png)
 
 *Source: [`images/release-pipeline.mmd`](images/release-pipeline.mmd) (Mermaid). Regenerate with
 `mmdc -i docs/images/release-pipeline.mmd -o docs/images/release-pipeline.png -b white -s 3`.*
@@ -55,24 +62,29 @@ actually running in production* — a human decides when those become the same t
 
 ## 2. Quick start
 
-For anyone who just needs to know what to type, in three sentences:
+For anyone who just needs to know what to type, in four sentences:
 
+0. **Always work on a branch.** Never commit directly to `main` — open a PR and get it merged,
+   every time, no exceptions for "small" changes.
 1. When you commit, your message's **type** (`fix:`, `feat:`, `feat!:`) says what kind of change
    it is — that's the only part that drives versioning.
-2. release-please reads those messages and keeps a standing "Release PR" up to date with the
-   next version + changelog. You never hand-edit a version number or `CHANGELOG.md`.
+2. release-please reads those messages *once they've landed on `main`* and keeps a standing
+   "Release PR" up to date with the next version + changelog. You never hand-edit a version
+   number or `CHANGELOG.md`.
 3. Merging that PR cuts a real release, which automatically builds and publishes the dev image
    with the matching version tag.
 
 Cheat sheet:
 
 ```text
+Before any of this: create a branch, never commit to main directly.
 Fixed something, or upgraded/downgraded/pinned a package? -> fix: describe it
 Added or removed a package?                               -> feat: describe what changed
 Swapped the base image? (the ONLY thing that's major)      -> feat!: describe it, plus a
                                                                BREAKING CHANGE: footer
 Just cleanup/docs/CI?                                       -> chore: / docs: / ci:
                                                                 (won't appear in changelog)
+Then: push the branch, open a PR, get it reviewed and merged.
 ```
 
 Terms: **semver** = version numbers shaped `MAJOR.MINOR.PATCH`; **release-please** = the bot that
@@ -153,6 +165,15 @@ It's for changelog readability and does not affect the version bump logic.
 new, or repair something that was broken/wrong?" New = `feat`. Repaired = `fix`.
 
 ## 4. Writing commits correctly
+
+**Start every change with a branch — do this before any of the commit examples below:**
+
+```bash
+git checkout -b fix/pin-numpy   # or feat/..., named for what you're actually doing
+```
+
+Commit on that branch, push it, and open a PR against `main`. Committing directly to `main` skips
+review and is not how changes get made here, no matter how small.
 
 A single-line `fix:`/`feat:` commit needs nothing special:
 
@@ -263,10 +284,11 @@ anything out, because release-please has no notion of "this undoes that."
 
 ## 7. How the pipeline works end-to-end
 
-1. **Contributor commits using Conventional Commits.** Every PR merged to `main` contains
-   commits following the format above.
-2. **release-please runs on every push to `main`.** It scans all commits since the last release
-   tag and classifies them by type.
+1. **Contributor works on a branch and commits using Conventional Commits, then opens a PR.**
+   Never directly on `main` — every PR merged to `main` contains commits following the format
+   above, and the PR is the review checkpoint before those messages become permanent history.
+2. **release-please runs on every push to `main`** — i.e., every time a PR is merged. It scans
+   all commits since the last release tag and classifies them by type.
 3. **release-please opens or updates a "Release PR."** This PR's diff is just two things: the
    version file (`geolab-base/VERSION`) bumped to the next semantic version, and
    `geolab-base/CHANGELOG.md` with a new section listing every `feat:`/`fix:`/breaking commit
@@ -317,6 +339,10 @@ because real commits already in the repo's history get counted too.
 
 ### Steps
 
+Steps 2–5 are all changes to files in the repo — make them on a single branch, pushed and opened
+as one PR, exactly like any other change (see [§4](#4-writing-commits-correctly)). Nothing here
+gets pushed directly to `main`, including the one-time bootstrapping commit in Step 5.
+
 1. **`.github/CODEOWNERS` already gates this.** It requires `@earthscope/cloud-enablement` to
    approve any change under `.github/`. Every workflow file below lives there — loop them in
    early rather than at PR time.
@@ -350,17 +376,17 @@ because real commits already in the repo's history get counted too.
    creates a duplicate-heading mess to clean up later (hit this in the sandbox).
 
 5. **Force the real starting version.** With the manifest at `0.0.0` and real commit history
-   already present, an ordinary push would compute *some* version, but not necessarily the right
-   one:
+   already present, an ordinary merge would compute *some* version, but not necessarily the
+   right one. Add this commit to the same branch as Steps 2–4, after those files are in place:
    ```bash
    git commit --allow-empty -m 'chore: set initial release version' \
      -m 'Release-As: 1.0.0'
    ```
-   (substitute the actual target version). Push *after* the workflow files and config from Steps
-   2–4 are in place.
+   (substitute the actual target version). It goes into the same PR as everything else in this
+   section — merge it, don't push it to `main` directly.
 
-6. **Repo settings — do this before pushing Step 5.** Two settings must be in place, or the
-   pipeline silently does nothing or fails partway through:
+6. **Repo settings — do this before merging the PR from Steps 2–5.** Two settings must be in
+   place, or the pipeline silently does nothing or fails partway through:
    - **Create a PAT and store it as the `RELEASE_PLEASE_TOKEN` secret.** `release-please.yml`
      authenticates with this instead of the default `GITHUB_TOKEN`. Not optional: GitHub does not
      let a release/tag created via the default token trigger other workflows, which means
@@ -382,10 +408,10 @@ because real commits already in the repo's history get counted too.
    apply unchanged.
 
 8. **Test before trusting it:**
-   1. Push the workflow files/config on a branch, open a PR, confirm `actionlint` and the
-      breaking-change-policy check both pass.
-   2. After merging to `main`, confirm `release-please` runs and — once Step 5's forcing commit
-      lands — opens a Release PR proposing the target starting version.
+   1. Push the branch from Steps 2–5 (workflow files, config, and the forcing commit together),
+      open the PR, confirm `actionlint` and the breaking-change-policy check both pass.
+   2. After merging to `main`, confirm `release-please` runs and opens a Release PR proposing the
+      target starting version.
    3. Merge that PR. Confirm a real GitHub Release and tag get created.
    4. Confirm `build-push.yml` actually runs off the `release: published` event (not just
       `workflow_dispatch`) — this is the one that silently didn't work before the PAT was in

@@ -1,5 +1,6 @@
 flowchart LR
-    A["Contributor commits\nfeat:/fix:/feat!: on geolab-base/*"] --> B["release-please opens/updates\nRelease PR: VERSION + CHANGELOG.md"]
+    A["Contributor creates a branch,\ncommits feat:/fix:/feat!: on geolab-base/*"] --> A2{"PR reviewed &\nmerged to main?"}
+    A2 -- merge --> B["release-please opens/updates\nRelease PR: VERSION + CHANGELOG.md"]
     B --> C{"Maintainer merges\nthe Release PR?"}
     C -- merge --> D["GitHub tags a release\ne.g. v1.3.0"]
     D --> E["build-push.yml triggers\non release: published"]
@@ -10,6 +11,7 @@ flowchart LR
     I -- merge --> J[".gitlab-ci.yml triggers"]
     J --> K["Production image built &\npushed to AWS ECR"]
 
+    style A2 fill:#fff3cd,stroke:#856404,color:#000
     style C fill:#fff3cd,stroke:#856404,color:#000
     style G fill:#fff3cd,stroke:#856404,color:#000
     style I fill:#fff3cd,stroke:#856404,color:#000
